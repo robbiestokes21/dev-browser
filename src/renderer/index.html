@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' 'unsafe-eval';
+    style-src 'self' 'unsafe-inline';
+    img-src 'self' data: blob:;
+    worker-src 'self' blob:;
+  " />
+  <title>DevBrowser</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     WELCOME SCREEN
+════════════════════════════════════════════════════════════════ -->
+<div id="welcome-overlay">
+  <div class="welcome-card">
+    <div class="welcome-logo">
+      <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+        <polygon points="24,2 44,13 44,35 24,46 4,35 4,13" fill="#7c3aed" opacity="0.2" stroke="#7c3aed" stroke-width="2"/>
+        <polygon points="24,10 36,17 36,31 24,38 12,31 12,17" fill="#7c3aed"/>
+      </svg>
+      <h1>DevBrowser</h1>
+      <p>Build websites, live.</p>
+    </div>
+
+    <div class="welcome-actions">
+      <button id="btn-new-project" class="btn-primary large">
+        <span class="btn-icon">+</span> New Project
+      </button>
+      <button id="btn-open-project" class="btn-secondary large">
+        <span class="btn-icon">📂</span> Open Folder
+      </button>
+    </div>
+
+    <div id="recent-section">
+      <div class="section-label">Recent</div>
+      <div id="recent-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     NEW PROJECT DIALOG
+════════════════════════════════════════════════════════════════ -->
+<div id="new-project-overlay" class="hidden">
+  <div class="dialog-card">
+    <div class="dialog-header">
+      <h2>New Project</h2>
+      <button class="dialog-close" id="btn-cancel-new">✕</button>
+    </div>
+
+    <label class="field-label">Project Name</label>
+    <input id="project-name-input" type="text" class="field-input" placeholder="my-website" />
+
+    <label class="field-label">Save Location</label>
+    <div class="field-row">
+      <input id="project-location-input" type="text" class="field-input" placeholder="Choose a folder…" readonly />
+      <button id="btn-choose-location" class="btn-secondary">Browse</button>
+    </div>
+
+    <label class="field-label">Template</label>
+    <div id="template-list">
+      <button class="tmpl-btn active" data-template="blank">Blank</button>
+      <button class="tmpl-btn" data-template="tailwind">Tailwind CSS</button>
+      <button class="tmpl-btn" data-template="bootstrap">Bootstrap 5</button>
+      <button class="tmpl-btn" data-template="react">React CDN</button>
+      <button class="tmpl-btn" data-template="vue">Vue 3 CDN</button>
+      <button class="tmpl-btn" data-template="landing">Landing Page</button>
+    </div>
+
+    <div class="dialog-footer">
+      <button id="btn-cancel-new-2" class="btn-secondary">Cancel</button>
+      <button id="btn-confirm-new" class="btn-primary">Create Project</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MAIN APP
+════════════════════════════════════════════════════════════════ -->
+<div id="app" class="hidden">
+
+  <!-- Top Toolbar -->
+  <div id="toolbar">
+    <div class="toolbar-group">
+      <!-- App icon + name -->
+      <div class="app-brand">
+        <svg width="16" height="16" viewBox="0 0 48 48" fill="none">
+          <polygon points="24,2 44,13 44,35 24,46 4,35 4,13" fill="#7c3aed" opacity="0.3" stroke="#7c3aed" stroke-width="2"/>
+          <polygon points="24,10 36,17 36,31 24,38 12,31 12,17" fill="#7c3aed"/>
+        </svg>
+        <span class="app-brand-name">DevBrowser</span>
+      </div>
+      <div class="toolbar-sep"></div>
+      <button id="btn-sidebar-toggle" class="tool-btn icon-only" title="Toggle Sidebar (Ctrl+B)">☰</button>
+      <div class="toolbar-sep"></div>
+      <span id="project-name-label"></span>
+    </div>
+
+    <div class="toolbar-group flex-1 justify-center">
+      <!-- intentionally empty — browser toolbar is inside browser pane -->
+    </div>
+
+    <div class="toolbar-group">
+      <button id="btn-find-files" class="tool-btn" title="Find in Files (Ctrl+Shift+F)">🔍 Find</button>
+      <button id="btn-cmd-palette" class="tool-btn" title="Command Palette (Ctrl+Shift+P)">⌘ Commands</button>
+      <div class="toolbar-sep"></div>
+      <button id="btn-new-project-toolbar" class="tool-btn" title="New Project">+ New</button>
+      <button id="btn-open-project-toolbar" class="tool-btn" title="Open Folder">Open</button>
+      <div class="toolbar-sep"></div>
+      <button id="btn-extensions" class="tool-btn" title="Extensions &amp; Settings">⚙ Settings</button>
+      <div class="toolbar-sep"></div>
+      <button id="btn-save" class="tool-btn accent" title="Save Active File (Ctrl+S)">Save</button>
+      <div class="toolbar-sep"></div>
+      <!-- Window controls -->
+      <div class="win-controls">
+        <button type="button" class="win-btn win-min"   id="win-min"   title="Minimize">─</button>
+        <button type="button" class="win-btn win-max"   id="win-max"   title="Maximize">□</button>
+        <button type="button" class="win-btn win-close" id="win-close" title="Close">✕</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main area (workspace + bottom panel) -->
+  <div id="main-area">
+
+    <!-- Workspace -->
+    <div id="workspace">
+
+      <!-- Sidebar -->
+      <div id="sidebar">
+        <div id="sidebar-header">
+          <span id="sidebar-title">EXPLORER</span>
+          <div class="sidebar-btns">
+            <button class="icon-btn" id="btn-new-file" title="New File">+F</button>
+            <button class="icon-btn" id="btn-new-folder" title="New Folder">+D</button>
+            <button class="icon-btn" id="btn-refresh-tree" title="Refresh">⟳</button>
+          </div>
+        </div>
+        <div id="file-tree"></div>
+      </div>
+
+      <!-- Drag handle: sidebar ↔ editor -->
+      <div class="divider" id="divider-sidebar" data-target="sidebar" data-axis="x"></div>
+
+      <!-- Editor Pane -->
+      <div id="editor-pane">
+        <div id="tab-bar">
+          <div id="tabs-scroll">
+            <div id="tabs"></div>
+          </div>
+          <div id="tab-bar-actions">
+            <button id="btn-pop-editor" class="icon-btn" title="Open Editor in Own Window">⧉</button>
+          </div>
+        </div>
+        <div id="editor-container">
+          <div id="editor"></div>
+          <div id="editor-empty">
+            <div class="editor-empty-inner">
+              <svg width="64" height="64" viewBox="0 0 48 48" fill="none" opacity="0.15">
+                <polygon points="24,2 44,13 44,35 24,46 4,35 4,13" stroke="#7c3aed" stroke-width="2" fill="#7c3aed" opacity="0.3"/>
+              </svg>
+              <p>Open a file from the sidebar<br/>to start editing</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Drag handle: editor ↔ browser -->
+      <div class="divider" id="divider-browser" data-target="browser-pane" data-axis="x" data-reverse="true"></div>
+
+      <!-- Browser Pane -->
+      <div id="browser-pane">
+        <!-- Browser Tab Bar (like a real browser) -->
+        <div id="browser-tab-bar">
+          <div id="browser-tabs-scroll">
+            <div id="browser-tabs"></div>
+          </div>
+          <button type="button" id="btn-new-browser-tab" title="New Tab">+</button>
+        </div>
+
+        <!-- Mini browser toolbar -->
+        <div id="browser-toolbar">
+          <button class="nav-btn" id="back" title="Back">◀</button>
+          <button class="nav-btn" id="forward" title="Forward">▶</button>
+          <button class="nav-btn" id="reload-browser" title="Reload">⟳</button>
+          <input id="url" type="text" class="url-bar" placeholder="http://localhost:7777" />
+          <button class="nav-btn go-btn" id="go">Go</button>
+          <div class="toolbar-sep"></div>
+          <!-- Responsive preview -->
+          <button class="resp-btn active" id="resp-desktop" title="Desktop view">🖥</button>
+          <button class="resp-btn" id="resp-tablet" title="Tablet (768px)">📲</button>
+          <button class="resp-btn" id="resp-mobile" title="Mobile (375px)">📱</button>
+          <div class="toolbar-sep"></div>
+          <!-- Auto-reload toggle -->
+          <button type="button" class="nav-btn auto-reload-btn" id="btn-auto-reload" title="Auto-reload on save (toggle)">Auto ⟳</button>
+        </div>
+        <!-- Webview container — webviews are injected dynamically -->
+        <div id="webview-scroll"></div>
+      </div>
+
+    </div><!-- /workspace -->
+
+    <!-- Horizontal divider for bottom panel -->
+    <div id="divider-bottom" class="divider-h"></div>
+
+    <!-- Bottom Panel (Terminal / Console / Git) -->
+    <div id="bottom-panel">
+      <div id="bottom-tabs">
+        <button class="btab active" data-btab="terminal">Terminal</button>
+        <button class="btab" data-btab="console">Console</button>
+        <button class="btab" data-btab="git">Git</button>
+        <span class="btab-spacer"></span>
+        <button id="btn-bottom-toggle" class="icon-btn" title="Toggle Panel">▼</button>
+      </div>
+
+      <!-- Terminal panel -->
+      <div class="btab-content" id="bpanel-terminal">
+        <div id="terminal-output"></div>
+        <div id="terminal-input-row">
+          <span class="term-cwd" id="term-cwd">~</span>
+          <span class="term-prompt">$</span>
+          <input id="terminal-input" type="text" autocomplete="off" spellcheck="false" placeholder="npm install, git status, …" />
+          <button id="btn-term-run" class="term-action-btn" title="Run">▶</button>
+          <button id="btn-term-kill" class="term-action-btn" title="Kill process">■</button>
+          <button id="btn-term-clear" class="term-action-btn" title="Clear">✕</button>
+        </div>
+      </div>
+
+      <!-- Console panel -->
+      <div class="btab-content hidden" id="bpanel-console">
+        <div id="console-toolbar">
+          <button id="btn-clear-console" class="icon-btn">Clear</button>
+          <span id="console-count" class="console-count"></span>
+        </div>
+        <div id="console-output"></div>
+      </div>
+
+      <!-- Git panel -->
+      <div class="btab-content hidden" id="bpanel-git">
+        <div id="git-toolbar">
+          <button id="btn-git-refresh" class="icon-btn">⟳ Refresh</button>
+          <span id="git-branch-badge" class="git-branch-badge"></span>
+        </div>
+        <div id="git-output"></div>
+      </div>
+    </div><!-- /bottom-panel -->
+
+  </div><!-- /main-area -->
+
+  <!-- Status Bar -->
+  <div id="status-bar">
+    <div class="status-left">
+      <span id="status-git-branch" class="status-item status-btn" title="Git branch">⎇ No git</span>
+      <span id="status-cursor" class="status-item">Ln 1, Col 1</span>
+      <span id="status-lang" class="status-item">Plain Text</span>
+    </div>
+    <div class="status-right">
+      <span id="status-auto-reload" class="status-item">Auto-reload: off</span>
+      <span id="status-server" class="status-item status-btn" title="Local server">⬤ No server</span>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<!-- ═══════════════════════════════════════════════════════════
+     EXTENSIONS & SETTINGS MODAL
+════════════════════════════════════════════════════════════════ -->
+<div id="ext-overlay" class="hidden">
+  <div class="ext-card">
+    <div class="ext-header">
+      <h2>Extensions &amp; Settings</h2>
+      <button type="button" id="btn-close-ext" class="dialog-close">✕</button>
+    </div>
+
+    <!-- Chrome / Browser Extensions -->
+    <div class="ext-section">
+      <div class="section-label">Chrome Extensions (Browser)</div>
+      <div id="chrome-ext-list" class="chrome-ext-list">
+        <div class="chrome-ext-empty">No extensions installed</div>
+      </div>
+      <div class="ext-section-footer">
+        <button type="button" id="btn-install-ext" class="btn-secondary">⊕ Install Unpacked Extension…</button>
+        <span class="ext-note" id="chrome-ext-note">Select an unzipped Chrome extension folder</span>
+      </div>
+    </div>
+
+    <!-- Framework completions -->
+    <div class="ext-section">
+      <div class="section-label">Framework Completions</div>
+      <div class="ext-list">
+        <label class="ext-item">
+          <div class="ext-info">
+            <div class="ext-name">Tailwind CSS</div>
+            <div class="ext-desc">Utility class completions inside HTML class attributes</div>
+          </div>
+          <div class="toggle"><input type="checkbox" id="ext-tailwind"><span class="toggle-track"></span></div>
+        </label>
+        <label class="ext-item">
+          <div class="ext-info">
+            <div class="ext-name">Bootstrap 5</div>
+            <div class="ext-desc">Bootstrap class completions inside HTML class attributes</div>
+          </div>
+          <div class="toggle"><input type="checkbox" id="ext-bootstrap"><span class="toggle-track"></span></div>
+        </label>
+        <label class="ext-item">
+          <div class="ext-info">
+            <div class="ext-name">React Snippets</div>
+            <div class="ext-desc">Component templates, hooks snippets for JS / JSX / TSX files</div>
+          </div>
+          <div class="toggle"><input type="checkbox" id="ext-react"><span class="toggle-track"></span></div>
+        </label>
+        <label class="ext-item">
+          <div class="ext-info">
+            <div class="ext-name">Vue Snippets</div>
+            <div class="ext-desc">SFC templates and Options / Composition API snippets</div>
+          </div>
+          <div class="toggle"><input type="checkbox" id="ext-vue"><span class="toggle-track"></span></div>
+        </label>
+      </div>
+    </div>
+
+    <!-- Editor settings -->
+    <div class="ext-section">
+      <div class="section-label">Editor Settings</div>
+      <div class="ext-list">
+        <label class="ext-item">
+          <div class="ext-info">
+            <div class="ext-name">Word Wrap</div>
+            <div class="ext-desc">Wrap long lines inside the editor viewport</div>
+          </div>
+          <div class="toggle"><input type="checkbox" id="ext-wordwrap"><span class="toggle-track"></span></div>
+        </label>
+        <label class="ext-item">
+          <div class="ext-info">
+            <div class="ext-name">Minimap</div>
+            <div class="ext-desc">Show the code minimap on the right side</div>
+          </div>
+          <div class="toggle"><input type="checkbox" id="ext-minimap"><span class="toggle-track"></span></div>
+        </label>
+        <label class="ext-item">
+          <div class="ext-info">
+            <div class="ext-name">Format on Save</div>
+            <div class="ext-desc">Auto-format the file with Prettier-style rules on Ctrl+S</div>
+          </div>
+          <div class="toggle"><input type="checkbox" id="ext-formatonsave"><span class="toggle-track"></span></div>
+        </label>
+      </div>
+    </div>
+
+    <!-- Auto-updater -->
+    <div class="ext-section">
+      <div class="section-label">Auto-Updater</div>
+      <div class="settings-row">
+        <div class="setting-item setting-item-grow">
+          <label class="setting-label" for="update-feed-url">Update Server URL</label>
+          <input type="text" id="update-feed-url" class="field-input field-input-full" placeholder="https://your-update-server.com/update" />
+        </div>
+      </div>
+      <div class="ext-section-footer">
+        <button type="button" id="btn-check-updates" class="btn-secondary">↻ Check for Updates</button>
+        <span id="update-status-msg" class="ext-note"></span>
+      </div>
+    </div>
+
+    <!-- Font size & tab size -->
+    <div class="ext-section">
+      <div class="section-label">Font &amp; Indentation</div>
+      <div class="settings-row">
+        <div class="setting-item">
+          <label class="setting-label" for="ext-fontsize">Font Size</label>
+          <select id="ext-fontsize" class="setting-select">
+            <option value="12">12px</option>
+            <option value="13">13px</option>
+            <option value="14" selected>14px</option>
+            <option value="15">15px</option>
+            <option value="16">16px</option>
+            <option value="18">18px</option>
+            <option value="20">20px</option>
+          </select>
+        </div>
+        <div class="setting-item">
+          <label class="setting-label" for="ext-tabsize">Tab Size</label>
+          <select id="ext-tabsize" class="setting-select">
+            <option value="2" selected>2 spaces</option>
+            <option value="4">4 spaces</option>
+          </select>
+        </div>
+        <div class="setting-item">
+          <label class="setting-label" for="ext-theme">Theme</label>
+          <select id="ext-theme" class="setting-select">
+            <option value="vs-dark" selected>Dark</option>
+            <option value="vs">Light</option>
+            <option value="hc-black">High Contrast</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     CONTEXT MENU
+════════════════════════════════════════════════════════════════ -->
+<div id="ctx-menu">
+  <button class="ctx-item" data-action="new-file">＋ New File Here</button>
+  <button class="ctx-item" data-action="new-folder">＋ New Folder Here</button>
+  <div class="ctx-sep"></div>
+  <button class="ctx-item" data-action="rename">✏ Rename</button>
+  <button class="ctx-item" data-action="duplicate">⧉ Duplicate</button>
+  <button class="ctx-item" data-action="copy-path">📋 Copy Path</button>
+  <div class="ctx-sep"></div>
+  <button class="ctx-item ctx-danger" data-action="delete">🗑 Delete</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     COMMAND PALETTE
+════════════════════════════════════════════════════════════════ -->
+<div id="cmd-palette" class="hidden">
+  <div id="cmd-backdrop"></div>
+  <div id="cmd-inner">
+    <input id="cmd-input" type="text" placeholder="Type a command…" autocomplete="off" spellcheck="false" />
+    <div id="cmd-list"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     FIND IN FILES
+════════════════════════════════════════════════════════════════ -->
+<div id="find-overlay" class="hidden">
+  <div class="find-header">
+    <span>Find in Files</span>
+    <button id="btn-find-close" class="icon-btn">✕</button>
+  </div>
+  <div class="find-row">
+    <input id="find-query" type="text" placeholder="Search across all files…" autocomplete="off" />
+    <label class="find-case-toggle" title="Case sensitive">
+      <input type="checkbox" id="find-case" />
+      <span>Aa</span>
+    </label>
+    <button id="btn-find-search" class="btn-primary">Search</button>
+  </div>
+  <div id="find-results"></div>
+</div>
+
+<script src="../../node_modules/monaco-editor/min/vs/loader.js"></script>
+<script src="./renderer.js"></script>
+</body>
+</html>

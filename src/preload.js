@@ -1,0 +1,77 @@
+const { contextBridge, ipcRenderer } = require("electron");
+
+contextBridge.exposeInMainWorld("DevBrowser", {
+  version: process.versions.electron,
+
+  // ── Project ──────────────────────────────────────────────────────────────
+  createProject: (opts) => ipcRenderer.invoke("create-project", opts),
+  openProject:   ()     => ipcRenderer.invoke("open-project"),
+  chooseFolder:  ()     => ipcRenderer.invoke("choose-folder"),
+
+  // ── File system ──────────────────────────────────────────────────────────
+  listFiles:     (dir)              => ipcRenderer.invoke("list-files", dir),
+  readFile:      (filePath)         => ipcRenderer.invoke("read-file", filePath),
+  writeFile:     (filePath, content) => ipcRenderer.invoke("write-file", { filePath, content }),
+  createFile:    (filePath, content) => ipcRenderer.invoke("create-file", { filePath, content }),
+  createFolder:  (folderPath)       => ipcRenderer.invoke("create-folder", folderPath),
+  deletePath:    (targetPath)       => ipcRenderer.invoke("delete-path", targetPath),
+  renamePath:    (oldPath, newPath)  => ipcRenderer.invoke("rename-path", { oldPath, newPath }),
+  duplicatePath: (srcPath)          => ipcRenderer.invoke("duplicate-path", srcPath),
+
+  // ── Local server ─────────────────────────────────────────────────────────
+  startServer: (projectPath) => ipcRenderer.invoke("start-server", projectPath),
+  stopServer:  ()            => ipcRenderer.invoke("stop-server"),
+
+  // ── Detached editor window ───────────────────────────────────────────────
+  openEditorWindow:    (fileData) => ipcRenderer.invoke("open-editor-window", fileData),
+  getEditorWindowFile: ()         => ipcRenderer.invoke("get-editor-window-file"),
+
+  // Sent by editor window when content changes → main window receives it
+  notifyFileChanged: (path, content) =>
+    ipcRenderer.send("file-changed-from-editor", { path, content }),
+
+  // Main window listens for changes coming from editor window
+  onFileChanged:  (cb) => ipcRenderer.on("file-changed", (_e, data) => cb(data)),
+  offFileChanged: ()   => ipcRenderer.removeAllListeners("file-changed"),
+
+  // Fired when the detached editor window is closed
+  onEditorWindowClosed: (cb) => ipcRenderer.on("editor-window-closed", () => cb()),
+
+  // ── File Watcher ─────────────────────────────────────────────────────────
+  watchProject:       (projectPath) => ipcRenderer.invoke("watch-project", projectPath),
+  unwatchProject:     ()            => ipcRenderer.invoke("unwatch-project"),
+  onFileWatchChange:  (cb)          => ipcRenderer.on("file-watch-change", (_e, data) => cb(data)),
+  offFileWatchChange: ()            => ipcRenderer.removeAllListeners("file-watch-change"),
+
+  // ── Terminal ─────────────────────────────────────────────────────────────
+  terminalRun:   (opts) => ipcRenderer.invoke("terminal-run", opts),
+  terminalKill:  ()     => ipcRenderer.invoke("terminal-kill"),
+  onTerminalData: (cb)  => ipcRenderer.on("terminal-data", (_e, data) => cb(data)),
+  offTerminalData: ()   => ipcRenderer.removeAllListeners("terminal-data"),
+
+  // ── Git ──────────────────────────────────────────────────────────────────
+  gitStatus: (projectPath) => ipcRenderer.invoke("git-status", projectPath),
+  gitBranch: (projectPath) => ipcRenderer.invoke("git-branch", projectPath),
+
+  // ── Search ───────────────────────────────────────────────────────────────
+  searchInFiles: (opts) => ipcRenderer.invoke("search-in-files", opts),
+
+  // ── Window controls ───────────────────────────────────────────────────────
+  winMinimize: () => ipcRenderer.send("win-minimize"),
+  winMaximize: () => ipcRenderer.send("win-maximize"),
+  winClose:    () => ipcRenderer.send("win-close"),
+
+  // ── Chrome Extensions ─────────────────────────────────────────────────────
+  listExtensions:      ()         => ipcRenderer.invoke("list-extensions"),
+  chooseExtensionPath: ()         => ipcRenderer.invoke("choose-extension-path"),
+  installExtension:    (srcPath)  => ipcRenderer.invoke("install-extension", srcPath),
+  removeExtension:     (id)       => ipcRenderer.invoke("remove-extension", id),
+
+  // ── Auto-updater ─────────────────────────────────────────────────────────
+  getUpdateFeedUrl:  ()    => ipcRenderer.invoke("get-update-feed-url"),
+  setUpdateFeedUrl:  (url) => ipcRenderer.invoke("set-update-feed-url", url),
+  checkForUpdates:   ()    => ipcRenderer.invoke("check-for-updates"),
+  installUpdate:     ()    => ipcRenderer.send("install-update"),
+  onUpdateStatus:    (cb)  => ipcRenderer.on("update-status", (_e, data) => cb(data)),
+  offUpdateStatus:   ()    => ipcRenderer.removeAllListeners("update-status"),
+});

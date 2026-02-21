@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' 'unsafe-eval';
+    style-src 'self' 'unsafe-inline';
+    img-src 'self' data: blob:;
+    worker-src 'self' blob:;
+  " />
+  <title>Editor</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+      background: #1e1e1e;
+      color: #ccc;
+      font-family: system-ui, sans-serif;
+      font-size: 13px;
+    }
+
+    #header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      height: 38px;
+      background: #323233;
+      border-bottom: 1px solid #111;
+      flex-shrink: 0;
+      -webkit-app-region: drag;
+    }
+    #header * { -webkit-app-region: no-drag; }
+
+    #file-name {
+      font-size: 13px;
+      color: #ccc;
+      font-weight: 500;
+    }
+
+    #status {
+      font-size: 11px;
+      color: #888;
+      margin-left: 10px;
+    }
+
+    #header-left { display: flex; align-items: center; gap: 8px; }
+
+    #btn-save {
+      background: #7c3aed;
+      border: none;
+      color: #fff;
+      padding: 5px 14px;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    #btn-save:hover { background: #6d28d9; }
+
+    #editor { flex: 1; }
+  </style>
+</head>
+<body>
+  <div id="header">
+    <div id="header-left">
+      <span id="file-name">Editor</span>
+      <span id="status">saved</span>
+    </div>
+    <button type="button" id="btn-save">Save (Ctrl+S)</button>
+  </div>
+  <div id="editor"></div>
+
+  <script src="../../node_modules/monaco-editor/min/vs/loader.js"></script>
+  <script src="./editor-window.js"></script>
+</body>
+</html>
