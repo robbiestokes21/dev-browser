@@ -6,6 +6,7 @@ const path = require("path");
 const fs = require("fs");
 const http = require("http");
 const { spawn, execFile } = require("child_process");
+const license = require("./license");
 
 let mainWindow = null;
 let editorWindow = null;
@@ -951,6 +952,73 @@ ipcMain.handle("check-for-updates", () => {
 
 ipcMain.on("install-update", () => {
   try { autoUpdater.quitAndInstall(); } catch {}
+});
+
+// ─── Pro License ─────────────────────────────────────────────────────────────
+ipcMain.handle("get-pro-status", () => license.getLicenseInfo());
+
+ipcMain.handle("activate-license", async (_e, key) => license.activateLicense(key));
+
+ipcMain.handle("deactivate-license", () => {
+  license.deactivateLicense();
+  return { success: true };
+});
+
+ipcMain.handle("get-pro-settings", () => license.getProSettings());
+
+ipcMain.handle("save-pro-settings", (_e, settings) => {
+  license.saveProSettings(settings);
+  return { success: true };
+});
+
+// ─── AI Completion (Pro) ──────────────────────────────────────────────────────
+ipcMain.handle("ai-complete", async (_e, opts) => {
+  if (!license.isPro()) return { success: false, error: 'Pro license required.' };
+  return license.aiComplete(opts);
+});
+
+// ─── Export to ZIP (Pro) ──────────────────────────────────────────────────────
+ipcMain.handle("choose-zip-save-path", async (_e, defaultName) => {
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title:       'Export Project as ZIP',
+    defaultPath: (defaultName || 'project') + '.zip',
+    filters:     [{ name: 'ZIP Archive', extensions: ['zip'] }],
+  });
+  return result.canceled ? null : result.filePath;
+});
+
+ipcMain.handle("export-to-zip", async (_e, { projectPath, outputPath }) => {
+  if (!license.isPro()) return { success: false, error: 'Pro license required.' };
+
+  try {
+    const isWin = process.platform === 'win32';
+
+    if (isWin) {
+      // PowerShell Compress-Archive
+      await new Promise((resolve, reject) => {
+        const ps = spawn('powershell', [
+          '-NoProfile', '-NonInteractive', '-Command',
+          `Compress-Archive -Force -Path "${projectPath}\\*" -DestinationPath "${outputPath}"`,
+        ], { windowsHide: true });
+        ps.on('close', code => code === 0 ? resolve() : reject(new Error(`PowerShell exited ${code}`)));
+        ps.on('error', reject);
+      });
+    } else {
+      // zip -r on macOS / Linux
+      await new Promise((resolve, reject) => {
+        const proc = spawn('zip', ['-r', outputPath, '.'], {
+          cwd: projectPath,
+          windowsHide: true,
+        });
+        proc.on('close', code => code === 0 ? resolve() : reject(new Error(`zip exited ${code}`)));
+        proc.on('error', reject);
+      });
+    }
+
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
 });
 
 // ─── App lifecycle ────────────────────────────────────────────────────────────

@@ -114,6 +114,8 @@
       <button id="btn-open-project-toolbar" class="tool-btn" title="Open Folder">Open</button>
       <div class="toolbar-sep"></div>
       <button id="btn-extensions" class="tool-btn" title="Extensions &amp; Settings">⚙ Settings</button>
+      <button id="btn-pro-badge" class="tool-btn pro-badge hidden" title="DevBrowser Pro — Manage License">★ Pro</button>
+      <button id="btn-upgrade" class="tool-btn upgrade-btn hidden" title="Upgrade to Pro">↑ Upgrade</button>
       <div class="toolbar-sep"></div>
       <button id="btn-save" class="tool-btn accent" title="Save Active File (Ctrl+S)">Save</button>
       <div class="toolbar-sep"></div>
@@ -269,6 +271,74 @@
 </div><!-- /app -->
 
 <!-- ═══════════════════════════════════════════════════════════
+     LICENSE ACTIVATION MODAL (Pro)
+════════════════════════════════════════════════════════════════ -->
+<div id="license-overlay" class="hidden">
+  <div class="dialog-card license-card">
+    <div class="dialog-header">
+      <h2 id="license-modal-title">Activate DevBrowser Pro</h2>
+      <button type="button" class="dialog-close" id="btn-close-license">✕</button>
+    </div>
+
+    <!-- Inactive state -->
+    <div id="license-inactive">
+      <p class="license-desc">Enter the license key you received after purchase to unlock all Pro features.</p>
+      <label class="field-label">License Key</label>
+      <input id="license-key-input" type="text" class="field-input" placeholder="XXXX-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false" />
+      <p id="license-error" class="license-error hidden"></p>
+      <div class="dialog-footer">
+        <a href="https://buy.polar.sh/polar_cl_KfAHuqPss7InlrR4hxbXZ1t7XzVKCSpdhjfDR2QR42s" target="_blank" rel="noopener" class="btn-secondary">Get a License →</a>
+        <button type="button" id="btn-activate-license" class="btn-primary">Activate</button>
+      </div>
+    </div>
+
+    <!-- Active state -->
+    <div id="license-active" class="hidden">
+      <div class="license-active-badge">★ DevBrowser Pro — Active</div>
+      <p id="license-active-email" class="license-active-email"></p>
+      <div class="pro-features-list">
+        <div class="pro-feat-item">✓ AI Code Completion</div>
+        <div class="pro-feat-item">✓ Custom Themes &amp; Fonts</div>
+        <div class="pro-feat-item">✓ Custom Keyboard Shortcuts</div>
+        <div class="pro-feat-item">✓ Export Project to ZIP</div>
+        <div class="pro-feat-item">✓ Unlimited Recent Projects</div>
+        <div class="pro-feat-item">✓ Priority Support</div>
+      </div>
+      <div class="dialog-footer">
+        <button type="button" id="btn-deactivate-license" class="btn-danger-sm">Deactivate</button>
+        <button type="button" id="btn-close-license-active" class="btn-primary">Done</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     UPGRADE PROMPT MODAL
+════════════════════════════════════════════════════════════════ -->
+<div id="upgrade-overlay" class="hidden">
+  <div class="dialog-card upgrade-card">
+    <div class="dialog-header">
+      <h2>DevBrowser Pro</h2>
+      <button type="button" class="dialog-close" id="btn-close-upgrade">✕</button>
+    </div>
+    <div class="upgrade-icon">★</div>
+    <p id="upgrade-feature-msg" class="upgrade-msg">This feature requires DevBrowser Pro.</p>
+    <div class="upgrade-feature-grid">
+      <div class="upgrade-feat">✦ AI Code Completion</div>
+      <div class="upgrade-feat">✦ Custom Themes</div>
+      <div class="upgrade-feat">✦ Export to ZIP</div>
+      <div class="upgrade-feat">✦ Custom Shortcuts</div>
+      <div class="upgrade-feat">✦ Unlimited Projects</div>
+      <div class="upgrade-feat">✦ Priority Support</div>
+    </div>
+    <div class="dialog-footer upgrade-footer">
+      <button type="button" id="btn-upgrade-cancel" class="btn-secondary">Maybe Later</button>
+      <button type="button" id="btn-upgrade-activate" class="btn-primary upgrade-cta">★ Activate License</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
      EXTENSIONS & SETTINGS MODAL
 ════════════════════════════════════════════════════════════════ -->
 <div id="ext-overlay" class="hidden">
@@ -365,6 +435,81 @@
       <div class="ext-section-footer">
         <button type="button" id="btn-check-updates" class="btn-secondary">↻ Check for Updates</button>
         <span id="update-status-msg" class="ext-note"></span>
+      </div>
+    </div>
+
+    <!-- Pro: AI Code Completion -->
+    <div class="ext-section pro-section" id="section-ai">
+      <div class="section-label">
+        <span class="pro-label-badge">★ Pro</span>
+        AI Code Completion
+      </div>
+      <div class="ext-list">
+        <label class="ext-item">
+          <div class="ext-info">
+            <div class="ext-name">Enable AI Completion</div>
+            <div class="ext-desc">Inline code suggestions as you type (requires API key)</div>
+          </div>
+          <div class="toggle"><input type="checkbox" id="pro-ai-enabled"><span class="toggle-track"></span></div>
+        </label>
+      </div>
+      <div class="settings-row">
+        <div class="setting-item setting-item-grow">
+          <label class="setting-label" for="pro-ai-provider">Provider</label>
+          <select id="pro-ai-provider" class="setting-select">
+            <option value="openai">OpenAI (GPT-4o mini)</option>
+            <option value="anthropic">Anthropic (Claude Haiku)</option>
+          </select>
+        </div>
+      </div>
+      <div class="settings-row">
+        <div class="setting-item setting-item-grow">
+          <label class="setting-label" for="pro-ai-key">API Key</label>
+          <input type="password" id="pro-ai-key" class="field-input field-input-full" placeholder="sk-… or sk-ant-…" autocomplete="off" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Pro: Custom Theme -->
+    <div class="ext-section pro-section" id="section-theme">
+      <div class="section-label">
+        <span class="pro-label-badge">★ Pro</span>
+        Custom Theme
+      </div>
+      <div class="settings-row">
+        <div class="setting-item">
+          <label class="setting-label" for="pro-accent-color">Accent Color</label>
+          <input type="color" id="pro-accent-color" class="color-picker" value="#7c3aed" />
+        </div>
+        <div class="setting-item">
+          <label class="setting-label" for="pro-bg-color">Background</label>
+          <input type="color" id="pro-bg-color" class="color-picker" value="#0d0d14" />
+        </div>
+        <div class="setting-item">
+          <label class="setting-label" for="pro-editor-font">Editor Font</label>
+          <select id="pro-editor-font" class="setting-select">
+            <option value="Consolas, &quot;Courier New&quot;, monospace">Consolas</option>
+            <option value="&quot;Fira Code&quot;, monospace">Fira Code</option>
+            <option value="&quot;JetBrains Mono&quot;, monospace">JetBrains Mono</option>
+            <option value="&quot;Source Code Pro&quot;, monospace">Source Code Pro</option>
+            <option value="&quot;Cascadia Code&quot;, monospace">Cascadia Code</option>
+          </select>
+        </div>
+      </div>
+      <div class="ext-section-footer">
+        <button type="button" id="btn-reset-theme" class="btn-secondary">Reset to Default</button>
+      </div>
+    </div>
+
+    <!-- Pro: Custom Keyboard Shortcuts -->
+    <div class="ext-section pro-section" id="section-shortcuts">
+      <div class="section-label">
+        <span class="pro-label-badge">★ Pro</span>
+        Custom Keyboard Shortcuts
+      </div>
+      <div id="shortcuts-list" class="shortcuts-list"></div>
+      <div class="ext-section-footer">
+        <button type="button" id="btn-reset-shortcuts" class="btn-secondary">Reset to Default</button>
       </div>
     </div>
 

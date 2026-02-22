@@ -8,6 +8,7 @@ require(['vs/editor/editor.main'], function () {
   // ════════════════════════════════════════════════════════════════════════════
   const state = {
     project:             null,
+    isPro:               false,
     tabs:                [],
     activeTabId:         null,
     serverPort:          null,
@@ -1897,5 +1898,393 @@ require(['vs/editor/editor.main'], function () {
     });
   });
 
+  // ════════════════════════════════════════════════════════════════════════════
+  // PRO FEATURES
+  // ════════════════════════════════════════════════════════════════════════════
+
+  let proSettings = {};
+  let aiProvider  = null;
+
+  // ── Upgrade prompt ──────────────────────────────────────────────────────────
+  function requirePro(featureMessage) {
+    if (state.isPro) return true;
+    document.getElementById('upgrade-feature-msg').textContent =
+      featureMessage || 'This feature requires DevBrowser Pro.';
+    document.getElementById('upgrade-overlay').classList.remove('hidden');
+    return false;
+  }
+
+  document.getElementById('btn-close-upgrade').addEventListener('click', () => {
+    document.getElementById('upgrade-overlay').classList.add('hidden');
+  });
+  document.getElementById('btn-upgrade-cancel').addEventListener('click', () => {
+    document.getElementById('upgrade-overlay').classList.add('hidden');
+  });
+  document.getElementById('btn-upgrade-activate').addEventListener('click', () => {
+    document.getElementById('upgrade-overlay').classList.add('hidden');
+    openLicenseModal();
+  });
+  document.getElementById('upgrade-overlay').addEventListener('click', e => {
+    if (e.target.id === 'upgrade-overlay')
+      document.getElementById('upgrade-overlay').classList.add('hidden');
+  });
+
+  // ── License modal ───────────────────────────────────────────────────────────
+  function openLicenseModal() {
+    document.getElementById('license-overlay').classList.remove('hidden');
+    document.getElementById('license-error').classList.add('hidden');
+    document.getElementById('license-key-input').value = '';
+  }
+  function closeLicenseModal() {
+    document.getElementById('license-overlay').classList.add('hidden');
+  }
+  function showLicenseActive(info) {
+    document.getElementById('license-inactive').classList.add('hidden');
+    document.getElementById('license-active').classList.remove('hidden');
+    document.getElementById('license-modal-title').textContent = 'DevBrowser Pro — Active';
+    document.getElementById('license-active-email').textContent =
+      info.email ? `Licensed to: ${info.email}` : '';
+  }
+  function showLicenseInactive() {
+    document.getElementById('license-inactive').classList.remove('hidden');
+    document.getElementById('license-active').classList.add('hidden');
+    document.getElementById('license-modal-title').textContent = 'Activate DevBrowser Pro';
+  }
+
+  document.getElementById('btn-close-license').addEventListener('click', closeLicenseModal);
+  document.getElementById('btn-close-license-active').addEventListener('click', closeLicenseModal);
+  document.getElementById('license-overlay').addEventListener('click', e => {
+    if (e.target.id === 'license-overlay') closeLicenseModal();
+  });
+
+  document.getElementById('btn-activate-license').addEventListener('click', async () => {
+    const key = document.getElementById('license-key-input').value.trim();
+    if (!key) return;
+    const btn   = document.getElementById('btn-activate-license');
+    const errEl = document.getElementById('license-error');
+    btn.disabled    = true;
+    btn.textContent = 'Activating…';
+    errEl.classList.add('hidden');
+    const r = await window.DevBrowser.activateLicense(key);
+    btn.disabled    = false;
+    btn.textContent = 'Activate';
+    if (r.success) {
+      state.isPro = true;
+      updateProUI(true);
+      const info = await window.DevBrowser.getProStatus();
+      showLicenseActive(info);
+    } else {
+      errEl.textContent = r.error;
+      errEl.classList.remove('hidden');
+    }
+  });
+
+  document.getElementById('btn-deactivate-license').addEventListener('click', async () => {
+    await window.DevBrowser.deactivateLicense();
+    state.isPro = false;
+    disableAiCompletion();
+    updateProUI(false);
+    showLicenseInactive();
+    closeLicenseModal();
+  });
+
+  document.getElementById('btn-pro-badge').addEventListener('click', async () => {
+    const info = await window.DevBrowser.getProStatus();
+    openLicenseModal();
+    if (info.isPro) showLicenseActive(info); else showLicenseInactive();
+  });
+  document.getElementById('btn-upgrade').addEventListener('click', () => {
+    openLicenseModal(); showLicenseInactive();
+  });
+
+  // ── Pro toolbar state ───────────────────────────────────────────────────────
+  function updateProUI(isPro) {
+    document.getElementById('btn-pro-badge').classList.toggle('hidden', !isPro);
+    document.getElementById('btn-upgrade').classList.toggle('hidden',  isPro);
+    document.querySelectorAll('.pro-section').forEach(el =>
+      el.classList.toggle('pro-locked', !isPro));
+  }
+
+  // Intercept clicks on locked Pro sections
+  document.querySelectorAll('.pro-section').forEach(section => {
+    section.addEventListener('click', e => {
+      if (section.classList.contains('pro-locked')) {
+        e.preventDefault();
+        e.stopPropagation();
+        const name = section.querySelector('.section-label')?.textContent?.replace('★ Pro', '').trim() || 'This feature';
+        requirePro(`${name} requires DevBrowser Pro.`);
+      }
+    }, true);
+  });
+
+  // ── Export to ZIP ───────────────────────────────────────────────────────────
+  async function exportProjectToZip() {
+    if (!requirePro('Export to ZIP is a Pro feature.')) return;
+    if (!state.project) return;
+    const outputPath = await window.DevBrowser.chooseZipSavePath(state.project.name);
+    if (!outputPath) return;
+    const r = await window.DevBrowser.exportToZip(state.project.path, outputPath);
+    if (r.success) {
+      const sb   = document.getElementById('status-server');
+      const prev = sb.textContent;
+      sb.textContent = '✓ Exported to ZIP';
+      setTimeout(() => { sb.textContent = prev; }, 3000);
+    } else {
+      const errDiv = document.createElement('div');
+      errDiv.className = 'input-dialog-overlay';
+      errDiv.innerHTML = `<div class="input-dialog"><div class="input-dialog-msg">Export failed: ${escapeHtml(r.error)}</div><div class="input-dialog-btns"><button class="btn-primary input-dialog-confirm">OK</button></div></div>`;
+      document.body.appendChild(errDiv);
+      errDiv.querySelector('.input-dialog-confirm').onclick = () => errDiv.remove();
+    }
+  }
+
+  // Add Pro commands to command palette
+  COMMANDS.push(
+    { label: 'Export Project to ZIP',  icon: '📦', shortcut: '',  action: exportProjectToZip },
+    { label: 'Activate / Manage Pro',  icon: '★',  shortcut: '',  action: openLicenseModal   },
+  );
+
+  // ── AI Completion ───────────────────────────────────────────────────────────
+  function enableAiCompletion(settings) {
+    disableAiCompletion();
+    if (!settings || !settings.aiEnabled || !settings.aiKey) return;
+    let debounceTimer = null;
+    aiProvider = monaco.languages.registerInlineCompletionsProvider({ pattern: '**' }, {
+      async provideInlineCompletions(model, position, _ctx, token) {
+        await new Promise(resolve => {
+          clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(resolve, 1400);
+        });
+        if (token.isCancellationRequested) return { items: [] };
+
+        const textBefore = model.getValueInRange({
+          startLineNumber: Math.max(1, position.lineNumber - 20),
+          startColumn:     1,
+          endLineNumber:   position.lineNumber,
+          endColumn:       position.column,
+        });
+        if (textBefore.trim().length < 12) return { items: [] };
+
+        const r = await window.DevBrowser.aiComplete({
+          provider: settings.aiProvider || 'openai',
+          apiKey:   settings.aiKey,
+          context:  model.getValue().slice(0, 2000),
+          prompt:   textBefore.slice(-500),
+        });
+        if (token.isCancellationRequested || !r.success || !r.text) return { items: [] };
+        const text = r.text.trim();
+        if (!text) return { items: [] };
+        return {
+          items: [{
+            insertText: text,
+            range: new monaco.Range(
+              position.lineNumber, position.column,
+              position.lineNumber, position.column),
+          }],
+        };
+      },
+      freeInlineCompletions() {},
+    });
+  }
+
+  function disableAiCompletion() {
+    if (aiProvider) { aiProvider.dispose(); aiProvider = null; }
+  }
+
+  // ── Custom Theme ────────────────────────────────────────────────────────────
+  function lightenHex(hex, amount) {
+    const r = Math.min(255, parseInt(hex.slice(1, 3), 16) + amount);
+    const g = Math.min(255, parseInt(hex.slice(3, 5), 16) + amount);
+    const b = Math.min(255, parseInt(hex.slice(5, 7), 16) + amount);
+    return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+  }
+
+  function applyCustomTheme(settings) {
+    const root = document.documentElement;
+    if (settings.accentColor) {
+      root.style.setProperty('--accent',    settings.accentColor);
+      root.style.setProperty('--accent-bg', settings.accentColor + '22');
+    }
+    if (settings.bgColor) {
+      root.style.setProperty('--bg0', settings.bgColor);
+      root.style.setProperty('--bg1', lightenHex(settings.bgColor,  8));
+      root.style.setProperty('--bg2', lightenHex(settings.bgColor, 14));
+      root.style.setProperty('--bg3', lightenHex(settings.bgColor, 20));
+    }
+    if (settings.editorFont) {
+      editor.updateOptions({ fontFamily: settings.editorFont });
+    }
+  }
+
+  function resetTheme() {
+    const root = document.documentElement;
+    ['--accent','--accent-bg','--bg0','--bg1','--bg2','--bg3'].forEach(v =>
+      root.style.removeProperty(v));
+    editor.updateOptions({ fontFamily: 'Consolas, "Courier New", monospace' });
+    document.getElementById('pro-accent-color').value = '#7c3aed';
+    document.getElementById('pro-bg-color').value     = '#0d0d14';
+    document.getElementById('pro-editor-font').value  = 'Consolas, "Courier New", monospace';
+    window.DevBrowser.saveProSettings({ accentColor: null, bgColor: null, editorFont: null });
+  }
+
+  document.getElementById('pro-accent-color').addEventListener('input', e => {
+    if (!state.isPro) { e.target.value = '#7c3aed'; return; }
+    proSettings.accentColor = e.target.value;
+    applyCustomTheme(proSettings);
+    window.DevBrowser.saveProSettings({ accentColor: e.target.value });
+  });
+  document.getElementById('pro-bg-color').addEventListener('input', e => {
+    if (!state.isPro) { e.target.value = '#0d0d14'; return; }
+    proSettings.bgColor = e.target.value;
+    applyCustomTheme(proSettings);
+    window.DevBrowser.saveProSettings({ bgColor: e.target.value });
+  });
+  document.getElementById('pro-editor-font').addEventListener('change', e => {
+    if (!state.isPro) return;
+    proSettings.editorFont = e.target.value;
+    editor.updateOptions({ fontFamily: e.target.value });
+    window.DevBrowser.saveProSettings({ editorFont: e.target.value });
+  });
+  document.getElementById('btn-reset-theme').addEventListener('click', () => {
+    if (!state.isPro) return;
+    resetTheme();
+  });
+
+  // ── Custom Keyboard Shortcuts ───────────────────────────────────────────────
+  const CUSTOM_SHORTCUT_DEFS = [
+    { id: 'save',           label: 'Save File',       defaultKey: 'Ctrl+S'       },
+    { id: 'toggle-sidebar', label: 'Toggle Sidebar',  defaultKey: 'Ctrl+B'       },
+    { id: 'find-files',     label: 'Find in Files',   defaultKey: 'Ctrl+Shift+F' },
+    { id: 'cmd-palette',    label: 'Command Palette', defaultKey: 'Ctrl+Shift+P' },
+    { id: 'toggle-term',    label: 'Toggle Terminal', defaultKey: 'Ctrl+`'       },
+    { id: 'reload-preview', label: 'Reload Preview',  defaultKey: 'Ctrl+Shift+R' },
+    { id: 'export-zip',     label: 'Export to ZIP',   defaultKey: '(unbound)'    },
+  ];
+
+  let customShortcuts = {};
+  let recordingId     = null;
+
+  function renderShortcutsList() {
+    const list = document.getElementById('shortcuts-list');
+    list.innerHTML = '';
+    CUSTOM_SHORTCUT_DEFS.forEach(def => {
+      const binding = customShortcuts[def.id];
+      const display = binding ? binding.display : def.defaultKey;
+      const row = document.createElement('div');
+      row.className = 'shortcut-row';
+      row.innerHTML = `
+        <span class="shortcut-label">${escapeHtml(def.label)}</span>
+        <span class="shortcut-key${recordingId === def.id ? ' recording' : ''}" data-id="${def.id}">
+          ${recordingId === def.id ? 'Press key combo…' : escapeHtml(display)}
+        </span>`;
+      row.querySelector('.shortcut-key').addEventListener('click', () => {
+        if (!state.isPro) return;
+        recordingId = def.id;
+        renderShortcutsList();
+      });
+      list.appendChild(row);
+    });
+  }
+
+  // Capture-phase keydown for shortcut recording
+  document.addEventListener('keydown', e => {
+    if (!recordingId) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.key === 'Escape') { recordingId = null; renderShortcutsList(); return; }
+    if (['Control','Shift','Alt','Meta'].includes(e.key)) return;
+    const display = [
+      e.ctrlKey  ? 'Ctrl+'  : '',
+      e.shiftKey ? 'Shift+' : '',
+      e.altKey   ? 'Alt+'   : '',
+      e.metaKey  ? 'Meta+'  : '',
+      e.key === ' ' ? 'Space' : (e.key.length === 1 ? e.key.toUpperCase() : e.key),
+    ].join('');
+    customShortcuts[recordingId] = {
+      ctrl: e.ctrlKey, shift: e.shiftKey, alt: e.altKey, meta: e.metaKey,
+      key: e.key, display,
+    };
+    proSettings.shortcuts = customShortcuts;
+    window.DevBrowser.saveProSettings({ shortcuts: customShortcuts });
+    recordingId = null;
+    renderShortcutsList();
+  }, true);
+
+  document.getElementById('btn-reset-shortcuts').addEventListener('click', () => {
+    if (!state.isPro) return;
+    customShortcuts      = {};
+    proSettings.shortcuts = {};
+    window.DevBrowser.saveProSettings({ shortcuts: {} });
+    renderShortcutsList();
+  });
+
+  // Dispatch custom shortcuts (capture phase, fires before other handlers)
+  document.addEventListener('keydown', e => {
+    if (!state.isPro || recordingId) return;
+    for (const [id, b] of Object.entries(customShortcuts)) {
+      if (e.ctrlKey === b.ctrl && e.shiftKey === b.shift &&
+          e.altKey  === b.alt  && e.metaKey  === b.meta  && e.key === b.key) {
+        e.preventDefault();
+        switch (id) {
+          case 'save':           saveActiveTab(); break;
+          case 'toggle-sidebar': document.getElementById('btn-sidebar-toggle').click(); break;
+          case 'find-files':     openFind(); break;
+          case 'cmd-palette':    openCmdPalette(); break;
+          case 'toggle-term':    switchBottomTab('terminal'); break;
+          case 'reload-preview': getWebview()?.reload(); break;
+          case 'export-zip':     exportProjectToZip(); break;
+        }
+        return;
+      }
+    }
+  }, true);
+
+  // ── Pro settings panel wiring ───────────────────────────────────────────────
+  document.getElementById('pro-ai-enabled').addEventListener('change', e => {
+    proSettings.aiEnabled = e.target.checked;
+    window.DevBrowser.saveProSettings({ aiEnabled: e.target.checked });
+    if (e.target.checked && proSettings.aiKey) enableAiCompletion(proSettings);
+    else disableAiCompletion();
+  });
+  document.getElementById('pro-ai-key').addEventListener('change', e => {
+    proSettings.aiKey = e.target.value.trim();
+    window.DevBrowser.saveProSettings({ aiKey: proSettings.aiKey });
+    if (proSettings.aiEnabled && proSettings.aiKey) enableAiCompletion(proSettings);
+    else disableAiCompletion();
+  });
+  document.getElementById('pro-ai-provider').addEventListener('change', e => {
+    proSettings.aiProvider = e.target.value;
+    window.DevBrowser.saveProSettings({ aiProvider: e.target.value });
+    if (proSettings.aiEnabled && proSettings.aiKey) enableAiCompletion(proSettings);
+  });
+
+  // Populate Pro settings fields when Settings modal opens
+  document.getElementById('btn-extensions').addEventListener('click', () => {
+    if (!state.isPro) return;
+    document.getElementById('pro-ai-enabled').checked = !!proSettings.aiEnabled;
+    document.getElementById('pro-ai-key').value       = proSettings.aiKey     || '';
+    document.getElementById('pro-ai-provider').value  = proSettings.aiProvider || 'openai';
+    document.getElementById('pro-accent-color').value = proSettings.accentColor || '#7c3aed';
+    document.getElementById('pro-bg-color').value     = proSettings.bgColor    || '#0d0d14';
+    document.getElementById('pro-editor-font').value  = proSettings.editorFont || 'Consolas, "Courier New", monospace';
+    renderShortcutsList();
+  });
+
+  // ── Startup init ────────────────────────────────────────────────────────────
+  async function initPro() {
+    const info = await window.DevBrowser.getProStatus();
+    state.isPro = info.isPro;
+    if (state.isPro) {
+      proSettings     = await window.DevBrowser.getProSettings();
+      customShortcuts = proSettings.shortcuts || {};
+      updateProUI(true);
+      applyCustomTheme(proSettings);
+      if (proSettings.aiEnabled && proSettings.aiKey) enableAiCompletion(proSettings);
+    } else {
+      updateProUI(false);
+    }
+  }
+
+  initPro();
 
 });

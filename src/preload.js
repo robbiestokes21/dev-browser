@@ -74,4 +74,20 @@ contextBridge.exposeInMainWorld("DevBrowser", {
   installUpdate:     ()    => ipcRenderer.send("install-update"),
   onUpdateStatus:    (cb)  => ipcRenderer.on("update-status", (_e, data) => cb(data)),
   offUpdateStatus:   ()    => ipcRenderer.removeAllListeners("update-status"),
+
+  // ── Pro License ───────────────────────────────────────────────────────────
+  getProStatus:      ()         => ipcRenderer.invoke("get-pro-status"),
+  activateLicense:   (key)      => ipcRenderer.invoke("activate-license", key),
+  deactivateLicense: ()         => ipcRenderer.invoke("deactivate-license"),
+
+  // ── Pro Settings (themes, shortcuts, AI key) ──────────────────────────────
+  getProSettings:    ()         => ipcRenderer.invoke("get-pro-settings"),
+  saveProSettings:   (settings) => ipcRenderer.invoke("save-pro-settings", settings),
+
+  // ── AI Completion (Pro) ───────────────────────────────────────────────────
+  aiComplete: (opts) => ipcRenderer.invoke("ai-complete", opts),
+
+  // ── Export to ZIP (Pro) ───────────────────────────────────────────────────
+  chooseZipSavePath: (name)                   => ipcRenderer.invoke("choose-zip-save-path", name),
+  exportToZip:       (projectPath, outputPath) => ipcRenderer.invoke("export-to-zip", { projectPath, outputPath }),
 });

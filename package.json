@@ -1,7 +1,7 @@
 {
   "name": "dev-browser",
   "productName": "dev-browser",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Developer-first web browser with built-in code editor",
   "main": "src/main.js",
   "private": true,

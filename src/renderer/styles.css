@@ -1519,3 +1519,232 @@ webview.active-wv { display: block; }
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.75; }
 }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PRO FEATURES
+════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Toolbar: Pro badge + Upgrade button ─────────────────────────────────── */
+.tool-btn.pro-badge {
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border-radius: 5px;
+  padding: 0 10px;
+}
+.tool-btn.pro-badge:hover { background: linear-gradient(135deg, #6d28d9, #9333ea); }
+
+.tool-btn.upgrade-btn {
+  background: transparent;
+  color: #a78bfa;
+  border: 1px solid #7c3aed66;
+  border-radius: 5px;
+  padding: 0 10px;
+  font-weight: 600;
+}
+.tool-btn.upgrade-btn:hover { background: #7c3aed22; color: #c4b5fd; }
+
+/* ── Overlay backdrops (license + upgrade modals) ───────────────────────── */
+#license-overlay,
+#upgrade-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1200;
+}
+
+/* ── License activation modal ───────────────────────────────────────────── */
+.license-card {
+  max-width: 460px;
+}
+.license-desc {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 16px;
+  line-height: 1.6;
+}
+.license-error {
+  font-size: 12px;
+  color: #f87171;
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: #f8717122;
+  border-radius: 4px;
+  border-left: 3px solid #f87171;
+}
+.license-active-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 8px 18px;
+  border-radius: 20px;
+  margin: 12px 0;
+  letter-spacing: 0.04em;
+}
+.license-active-email {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 14px;
+}
+.pro-features-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin: 12px 0 20px;
+}
+.pro-feat-item {
+  font-size: 12px;
+  color: #a78bfa;
+  padding: 5px 8px;
+  background: #7c3aed18;
+  border-radius: 4px;
+}
+.btn-danger-sm {
+  background: transparent;
+  color: #f87171;
+  border: 1px solid #f8717144;
+  border-radius: 5px;
+  padding: 6px 14px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-danger-sm:hover { background: #f8717122; }
+
+/* ── Upgrade prompt modal ───────────────────────────────────────────────── */
+.upgrade-card {
+  max-width: 420px;
+  text-align: center;
+}
+.upgrade-icon {
+  font-size: 40px;
+  margin: 8px 0 12px;
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.upgrade-msg {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 16px;
+  line-height: 1.6;
+}
+.upgrade-feature-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 20px;
+}
+.upgrade-feat {
+  font-size: 12px;
+  color: #a78bfa;
+  padding: 6px 8px;
+  background: #7c3aed18;
+  border-radius: 4px;
+  text-align: left;
+}
+.upgrade-footer { justify-content: center; gap: 12px; }
+.upgrade-cta {
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 8px 22px;
+}
+.upgrade-cta:hover { background: linear-gradient(135deg, #6d28d9, #9333ea); }
+
+/* ── Pro sections in settings (locked state) ────────────────────────────── */
+.pro-section { transition: opacity 0.2s; }
+.pro-section.pro-locked {
+  opacity: 0.45;
+  pointer-events: none; /* actual click interception handled in JS (capture) */
+  position: relative;
+}
+.pro-section.pro-locked::after {
+  content: '★ Pro';
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #a78bfa;
+  background: #7c3aed22;
+  padding: 2px 7px;
+  border-radius: 10px;
+  letter-spacing: 0.05em;
+  pointer-events: none;
+}
+.pro-label-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 8px;
+  margin-right: 6px;
+  vertical-align: middle;
+  letter-spacing: 0.06em;
+}
+
+/* ── Color pickers ──────────────────────────────────────────────────────── */
+.color-picker {
+  width: 40px;
+  height: 32px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg2);
+  cursor: pointer;
+}
+.color-picker:hover { border-color: var(--accent); }
+
+/* ── Custom shortcuts list ──────────────────────────────────────────────── */
+.shortcuts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  border-radius: 4px;
+  transition: background 0.1s;
+}
+.shortcut-row:hover { background: var(--bg2); }
+.shortcut-label {
+  font-size: 12px;
+  color: var(--text);
+}
+.shortcut-key {
+  font-size: 11px;
+  font-family: 'Consolas', monospace;
+  color: var(--text-dim);
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+  min-width: 100px;
+  text-align: center;
+}
+.shortcut-key:hover { border-color: var(--accent); color: var(--accent); }
+.shortcut-key.recording {
+  border-color: var(--accent);
+  background: var(--accent-bg, #7c3aed22);
+  color: #a78bfa;
+  animation: pulse-recording 0.8s ease-in-out infinite;
+}
+@keyframes pulse-recording {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
