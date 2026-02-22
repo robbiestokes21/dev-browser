@@ -95,27 +95,7 @@ out/
 claude/
 .claude/
 
-# Web Site
-website/
-website/dist/
-website/node_modules/
-website/.vscode/
-website/.idea/
-website/.DS_Store
-website/.env
-website/.env.local
-website/.env.development
-website/.env.test
-website/.env.production
-website/.env.*.local
-website/.eslintcache
-website/.nyc_output/
-website/.parcel-cache/
-website/.cache/
-website/.webpack/
-website/.vite/
-website/.fusebox/
-website/.serverless/
-website/.dynamodb/
-website/.DS_Store
-website/*
+# Website build artifacts only (source is tracked)
+Website/node_modules/
+Website/dist/
+Website/.cache/

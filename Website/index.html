@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DevBrowser — The Browser Built for Developers</title>
+  <meta name="description" content="DevBrowser is an Electron-powered developer browser with a built-in Monaco code editor, live preview, file explorer, terminal, and Chrome extension support." />
+  <link rel="icon" type="image/png" href="icon.png" />
+  
+  <!-- Bootstrap 5.3.8 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.8/css/bootstrap.min.css" />
+  <!-- Bootstrap Icons 1.13.1 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.13.1/font/bootstrap-icons.min.css" />
+  <!-- Font Awesome 7.0.1 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" />
+  <!-- Animate.css 4.1.1 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       NAVBAR
+  ════════════════════════════════════════════════════════════════ -->
+  <nav class="navbar navbar-expand-lg navbar-dark db-navbar sticky-top">
+    <div class="container">
+      <a class="navbar-brand d-flex align-items-center gap-2" href="#">
+        <img src="icon.png" alt="DevBrowser" class="brand-img" />
+        <span class="brand-name">DevBrowser</span>
+      </a>
+
+      <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navMain">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+
+      <div class="collapse navbar-collapse" id="navMain">
+        <ul class="navbar-nav mx-auto gap-1">
+          <li class="nav-item"><a class="nav-link" href="#features">Features</a></li>
+          <li class="nav-item"><a class="nav-link" href="#preview">Preview</a></li>
+          <li class="nav-item"><a class="nav-link" href="#pricing">Pricing</a></li>
+          <li class="nav-item"><a class="nav-link" href="#download">Download</a></li>
+          <li class="nav-item"><a class="nav-link" href="#community">Community</a></li>
+        </ul>
+        <a href="#download" class="btn btn-primary db-btn-primary ms-lg-3">
+          <i class="bi bi-download me-2"></i>Download Free
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       HERO
+  ════════════════════════════════════════════════════════════════ -->
+  <section class="db-hero">
+    <div class="hero-glow hero-glow-1"></div>
+    <div class="hero-glow hero-glow-2"></div>
+    <div class="container text-center position-relative">
+      <div class="hero-badge animate__animated animate__fadeInDown">
+        <i class="bi bi-stars me-1"></i> Now in Early Access — Free to Download
+      </div>
+
+      <h1 class="hero-headline animate__animated animate__fadeInUp">
+        The Browser<br class="d-none d-md-block" />
+        <span class="text-gradient">Built for Developers</span>
+      </h1>
+
+      <p class="hero-sub animate__animated animate__fadeInUp animate__delay-1s">
+        Code, preview, and deploy — all in one window. DevBrowser combines a full Monaco
+        code editor, live browser preview, integrated terminal, and Chrome extension support
+        into a single desktop app.
+      </p>
+
+      <div class="hero-actions animate__animated animate__fadeInUp animate__delay-1s d-flex flex-wrap justify-content-center gap-3">
+        <a href="#download" class="btn db-btn-primary btn-lg px-5">
+          <i class="bi bi-windows me-2"></i>Download for Windows
+        </a>
+        <a href="#preview" class="btn db-btn-ghost btn-lg px-5">
+          <i class="bi bi-play-circle me-2"></i>See it in Action
+        </a>
+      </div>
+
+      <div class="hero-meta animate__animated animate__fadeIn animate__delay-2s d-flex justify-content-center gap-4 flex-wrap">
+        <span><i class="bi bi-shield-check text-success me-1"></i>Free &amp; Open Source</span>
+        <span><i class="bi bi-windows text-info me-1"></i>Windows 10/11</span>
+        <span><i class="bi bi-download me-1"></i>No account required</span>
+      </div>
+
+      <!-- App Mockup -->
+      <div class="hero-mockup animate__animated animate__fadeInUp animate__delay-1s">
+        <div class="mockup-window">
+          <div class="mockup-titlebar">
+            <div class="mockup-traffic">
+              <span class="traffic-dot dot-red"></span>
+              <span class="traffic-dot dot-yellow"></span>
+              <span class="traffic-dot dot-green"></span>
+            </div>
+            <div class="mockup-title">DevBrowser — index.html</div>
+            <div class="mockup-controls">
+              <span class="mockup-ctrl-btn"></span>
+              <span class="mockup-ctrl-btn"></span>
+              <span class="mockup-ctrl-btn"></span>
+            </div>
+          </div>
+          <div class="mockup-body">
+            <!-- Sidebar -->
+            <div class="mockup-sidebar">
+              <div class="mockup-sidebar-title">MY PROJECT</div>
+              <div class="mockup-file active"><i class="bi bi-filetype-html me-1"></i>index.html</div>
+              <div class="mockup-file"><i class="bi bi-filetype-css me-1"></i>styles.css</div>
+              <div class="mockup-file"><i class="bi bi-filetype-js me-1"></i>script.js</div>
+              <div class="mockup-folder"><i class="bi bi-folder me-1"></i>assets/</div>
+              <div class="mockup-file indent"><i class="bi bi-image me-1"></i>logo.png</div>
+            </div>
+            <!-- Editor -->
+            <div class="mockup-editor">
+              <div class="mockup-tabs">
+                <div class="mockup-tab active">index.html</div>
+                <div class="mockup-tab">styles.css <span class="tab-dot">●</span></div>
+              </div>
+              <div class="mockup-code">
+                <div class="code-line"><span class="ln">1</span><span class="tag">&lt;!DOCTYPE</span> <span class="attr">html</span><span class="tag">&gt;</span></div>
+                <div class="code-line"><span class="ln">2</span><span class="tag">&lt;html</span> <span class="attr">lang</span>=<span class="str">"en"</span><span class="tag">&gt;</span></div>
+                <div class="code-line"><span class="ln">3</span><span class="tag">&lt;head&gt;</span></div>
+                <div class="code-line"><span class="ln">4</span>&nbsp;&nbsp;<span class="tag">&lt;title&gt;</span><span class="str">My App</span><span class="tag">&lt;/title&gt;</span></div>
+                <div class="code-line"><span class="ln">5</span><span class="tag">&lt;/head&gt;</span></div>
+                <div class="code-line cursor-line"><span class="ln">6</span><span class="tag">&lt;body&gt;</span><span class="cursor"></span></div>
+                <div class="code-line"><span class="ln">7</span>&nbsp;&nbsp;<span class="tag">&lt;h1&gt;</span><span class="str">Hello World</span><span class="tag">&lt;/h1&gt;</span></div>
+                <div class="code-line"><span class="ln">8</span><span class="tag">&lt;/body&gt;</span></div>
+              </div>
+            </div>
+            <!-- Browser Preview -->
+            <div class="mockup-browser">
+              <div class="mockup-browser-bar">
+                <div class="browser-nav-btns">
+                  <i class="bi bi-chevron-left"></i>
+                  <i class="bi bi-chevron-right"></i>
+                  <i class="bi bi-arrow-clockwise"></i>
+                </div>
+                <div class="browser-url">localhost:7777</div>
+              </div>
+              <div class="mockup-browser-content">
+                <div class="preview-heading">Hello World</div>
+                <div class="preview-sub">Edit the code on the left and see changes live</div>
+                <div class="preview-btn">Get Started</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       FEATURES
+  ════════════════════════════════════════════════════════════════ -->
+  <section id="features" class="db-section">
+    <div class="container">
+      <div class="section-label">Everything you need</div>
+      <h2 class="section-title">Built-in tools. Zero setup.</h2>
+      <p class="section-sub">Stop juggling between your editor, browser, and terminal. DevBrowser brings them all together in one focused workspace.</p>
+
+      <div class="row g-4 mt-2">
+        <!-- Feature cards -->
+        <div class="col-md-6 col-lg-4 scroll-reveal">
+          <div class="db-feature-card">
+            <div class="feature-icon-wrap" style="--icon-color:#7c3aed">
+              <i class="bi bi-code-slash"></i>
+            </div>
+            <h5>Monaco Code Editor</h5>
+            <p>The same editor that powers VS Code — syntax highlighting, IntelliSense, multi-file tabs, and format on save for HTML, CSS, JS, TS and more.</p>
+          </div>
+        </div>
+
+        <div class="col-md-6 col-lg-4 scroll-reveal">
+          <div class="db-feature-card">
+            <div class="feature-icon-wrap" style="--icon-color:#0ea5e9">
+              <i class="bi bi-browser-chrome"></i>
+            </div>
+            <h5>Live Browser Preview</h5>
+            <p>A full Chromium browser pane with tabs, navigation controls, and auto-reload on save — see your changes the instant you hit Ctrl+S.</p>
+          </div>
+        </div>
+
+        <div class="col-md-6 col-lg-4 scroll-reveal">
+          <div class="db-feature-card">
+            <div class="feature-icon-wrap" style="--icon-color:#10b981">
+              <i class="bi bi-folder2-open"></i>
+            </div>
+            <h5>Project File Explorer</h5>
+            <p>Full sidebar file tree with drag-to-move, right-click context menus for rename, duplicate, delete, and create. Works just like VS Code.</p>
+          </div>
+        </div>
+
+        <div class="col-md-6 col-lg-4 scroll-reveal">
+          <div class="db-feature-card">
+            <div class="feature-icon-wrap" style="--icon-color:#f59e0b">
+              <i class="bi bi-terminal-fill"></i>
+            </div>
+            <h5>Integrated Terminal</h5>
+            <p>Run npm scripts, Git commands, or any shell command right inside the app. No need to Alt+Tab to a separate terminal window.</p>
+          </div>
+        </div>
+
+        <div class="col-md-6 col-lg-4 scroll-reveal">
+          <div class="db-feature-card">
+            <div class="feature-icon-wrap" style="--icon-color:#ec4899">
+              <i class="bi bi-puzzle-fill"></i>
+            </div>
+            <h5>Chrome Extensions</h5>
+            <p>Install any unpacked Chrome extension — React DevTools, Redux DevTools, Vue DevTools — and use them in the built-in browser preview.</p>
+          </div>
+        </div>
+
+        <div class="col-md-6 col-lg-4 scroll-reveal">
+          <div class="db-feature-card">
+            <div class="feature-icon-wrap" style="--icon-color:#6366f1">
+              <i class="bi bi-phone"></i>
+            </div>
+            <h5>Responsive Preview Modes</h5>
+            <p>Switch between desktop, tablet, and mobile viewports instantly. Test your layouts across screen sizes without leaving the app.</p>
+          </div>
+        </div>
+
+        <div class="col-md-6 col-lg-4 scroll-reveal">
+          <div class="db-feature-card">
+            <div class="feature-icon-wrap" style="--icon-color:#ef4444">
+              <i class="bi bi-git"></i>
+            </div>
+            <h5>Git Status Panel</h5>
+            <p>See staged, modified, and untracked files at a glance. Click any changed file to open it directly in the editor.</p>
+          </div>
+        </div>
+
+        <div class="col-md-6 col-lg-4 scroll-reveal">
+          <div class="db-feature-card">
+            <div class="feature-icon-wrap" style="--icon-color:#14b8a6">
+              <i class="bi bi-search"></i>
+            </div>
+            <h5>Find in Files</h5>
+            <p>Global search across your entire project. Jump directly to matching lines in the editor with a single click.</p>
+          </div>
+        </div>
+
+        <div class="col-md-6 col-lg-4 scroll-reveal">
+          <div class="db-feature-card">
+            <div class="feature-icon-wrap" style="--icon-color:#8b5cf6">
+              <i class="bi bi-arrow-repeat"></i>
+            </div>
+            <h5>Auto-Updater</h5>
+            <p>Always stay on the latest version. DevBrowser silently checks for updates in the background and notifies you when one is ready.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       APP PREVIEW
+  ════════════════════════════════════════════════════════════════ -->
+  <section id="preview" class="db-section db-section-dark">
+    <div class="container">
+      <div class="section-label">See it in action</div>
+      <h2 class="section-title">One window. Everything.</h2>
+      <p class="section-sub">The three-panel layout keeps your file tree, editor, and live preview side by side — no more alt-tabbing between apps.</p>
+
+      <div class="row g-5 align-items-center mt-2">
+        <div class="col-lg-5 scroll-reveal">
+          <div class="preview-features-list">
+            <div class="pf-item active" data-panel="editor">
+              <div class="pf-icon"><i class="bi bi-code-slash"></i></div>
+              <div>
+                <div class="pf-title">Monaco Editor with tabs</div>
+                <div class="pf-desc">Multiple files open simultaneously, each with its own undo history and cursor position</div>
+              </div>
+            </div>
+            <div class="pf-item" data-panel="browser">
+              <div class="pf-icon"><i class="bi bi-browser-chrome"></i></div>
+              <div>
+                <div class="pf-title">Full Chromium browser</div>
+                <div class="pf-desc">Real browser with multiple tabs, back/forward navigation, and DevTools access</div>
+              </div>
+            </div>
+            <div class="pf-item" data-panel="terminal">
+              <div class="pf-icon"><i class="bi bi-terminal"></i></div>
+              <div>
+                <div class="pf-title">Integrated terminal + console</div>
+                <div class="pf-desc">Run commands and see browser console output in the bottom panel</div>
+              </div>
+            </div>
+            <div class="pf-item" data-panel="popout">
+              <div class="pf-icon"><i class="bi bi-box-arrow-up-right"></i></div>
+              <div>
+                <div class="pf-title">Detachable editor window</div>
+                <div class="pf-desc">Pop the editor out into its own floating window for multi-monitor setups</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-7 scroll-reveal">
+          <div class="preview-screen-wrap">
+            <div class="preview-screen">
+              <div class="ps-toolbar">
+                <span class="ps-logo"><i class="bi bi-code-branch"></i> DevBrowser</span>
+                <div class="ps-tabs">
+                  <span class="ps-tab active">index.html</span>
+                  <span class="ps-tab">styles.css <b style="color:#7c3aed">●</b></span>
+                  <span class="ps-tab">script.js</span>
+                </div>
+                <div class="ps-actions">
+                  <span class="ps-btn">Save</span>
+                  <span class="ps-btn">⊞</span>
+                </div>
+              </div>
+              <div class="ps-body" id="ps-body">
+
+                <!-- ── State: Editor (default) ───────────────────────── -->
+                <div class="ps-state active" data-state="editor">
+                  <div class="ps-sidebar">
+                    <div class="ps-sidebar-hdr">PROJECT</div>
+                    <div class="ps-file selected">📄 index.html</div>
+                    <div class="ps-file">🎨 styles.css</div>
+                    <div class="ps-file">📜 script.js</div>
+                    <div class="ps-file folder">📁 assets/</div>
+                    <div class="ps-file sub">🖼 logo.png</div>
+                  </div>
+                  <div class="ps-editor">
+                    <div class="ps-code-line"><span class="ps-ln">1</span><span class="ps-tag">&lt;!DOCTYPE html&gt;</span></div>
+                    <div class="ps-code-line"><span class="ps-ln">2</span><span class="ps-tag">&lt;html&gt;</span></div>
+                    <div class="ps-code-line"><span class="ps-ln">3</span><span class="ps-cmt">&nbsp;&nbsp;&lt;!-- Hero --&gt;</span></div>
+                    <div class="ps-code-line"><span class="ps-ln">4</span><span class="ps-tag">&nbsp;&nbsp;&lt;section</span> <span class="ps-attr">class</span>=<span class="ps-str">"hero"</span><span class="ps-tag">&gt;</span></div>
+                    <div class="ps-code-line ps-cursor-line"><span class="ps-ln">5</span><span class="ps-tag">&nbsp;&nbsp;&nbsp;&nbsp;&lt;h1&gt;</span><span class="ps-str">Welcome</span><span class="ps-tag">&lt;/h1&gt;</span><span class="ps-cursor-blink">|</span></div>
+                    <div class="ps-code-line"><span class="ps-ln">6</span><span class="ps-tag">&nbsp;&nbsp;&lt;/section&gt;</span></div>
+                    <div class="ps-code-line"><span class="ps-ln">7</span><span class="ps-tag">&lt;/html&gt;</span></div>
+                  </div>
+                  <div class="ps-browser">
+                    <div class="ps-browser-bar">
+                      <div class="ps-nav-btns">‹ › ↻</div>
+                      <div class="ps-url">localhost:7777</div>
+                    </div>
+                    <div class="ps-preview">
+                      <div class="ps-preview-h1">Welcome</div>
+                      <div class="ps-preview-tagline">Live preview on save</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- ── State: Browser ────────────────────────────────── -->
+                <div class="ps-state" data-state="browser">
+                  <div class="ps-browser-full">
+                    <div class="ps-browser-tabstrip">
+                      <div class="ps-btab active"><span>🌐</span> localhost:7777</div>
+                      <div class="ps-btab"><span>🌐</span> github.com</div>
+                      <div class="ps-btab-add">+</div>
+                    </div>
+                    <div class="ps-browser-bar-full">
+                      <div class="ps-nav-btns">‹ › ↻</div>
+                      <div class="ps-url-full">http://localhost:7777</div>
+                      <div class="ps-resp">🖥 📱</div>
+                    </div>
+                    <div class="ps-browser-page">
+                      <div class="ps-page-nav">My App <span>Home</span><span>About</span><span>Contact</span></div>
+                      <div class="ps-page-hero">
+                        <div class="ps-page-h1">Hello World</div>
+                        <div class="ps-page-sub">Built with DevBrowser</div>
+                        <div class="ps-page-btn">Get Started →</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- ── State: Terminal ───────────────────────────────── -->
+                <div class="ps-state" data-state="terminal">
+                  <div class="ps-term-layout">
+                    <div class="ps-term-editor">
+                      <div class="ps-code-line"><span class="ps-ln">1</span><span class="ps-kw">const</span> <span class="ps-var">express</span> = <span class="ps-fn">require</span>(<span class="ps-str">'express'</span>);</div>
+                      <div class="ps-code-line"><span class="ps-ln">2</span><span class="ps-kw">const</span> <span class="ps-var">app</span> = <span class="ps-fn">express</span>();</div>
+                      <div class="ps-code-line"><span class="ps-ln">3</span></div>
+                      <div class="ps-code-line ps-cursor-line"><span class="ps-ln">4</span><span class="ps-var">app</span>.<span class="ps-fn">listen</span>(<span class="ps-num">3000</span>);<span class="ps-cursor-blink">|</span></div>
+                    </div>
+                    <div class="ps-term-panel">
+                      <div class="ps-term-tabs-bar">
+                        <span class="ps-term-tab active">Terminal</span>
+                        <span class="ps-term-tab">Console</span>
+                        <span class="ps-term-tab">Git</span>
+                      </div>
+                      <div class="ps-term-output">
+                        <div class="ps-tline"><span class="ps-prompt">$</span> npm run dev</div>
+                        <div class="ps-tline ps-t-info">&gt; dev-browser@1.0.0 dev</div>
+                        <div class="ps-tline ps-t-info">&gt; node server.js</div>
+                        <div class="ps-tline ps-t-ok">✓ Server running at http://localhost:7777</div>
+                        <div class="ps-tline ps-t-ok">✓ Watching for file changes...</div>
+                        <div class="ps-tline"><span class="ps-prompt">$</span> <span class="ps-cursor-blink">|</span></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- ── State: Pop-out Editor ─────────────────────────── -->
+                <div class="ps-state" data-state="popout">
+                  <div class="ps-popout-layout">
+                    <div class="ps-popout-bg">
+                      <div class="ps-browser-bar">
+                        <div class="ps-nav-btns">‹ › ↻</div>
+                        <div class="ps-url">localhost:7777</div>
+                      </div>
+                      <div class="ps-popout-preview">
+                        <div class="ps-page-h1 ps-page-h1-sm">Hello World</div>
+                        <div class="ps-page-sub ps-page-sub-sm">Live preview</div>
+                      </div>
+                    </div>
+                    <div class="ps-popout-win">
+                      <div class="ps-popout-titlebar">
+                        <div class="ps-popout-traffic">
+                          <span class="ps-dot-red"></span>
+                          <span class="ps-dot-yellow"></span>
+                          <span class="ps-dot-green"></span>
+                        </div>
+                        <span class="ps-popout-filename">styles.css — Editor</span>
+                      </div>
+                      <div class="ps-popout-code">
+                        <div class="ps-code-line"><span class="ps-ln">1</span><span class="ps-var">body</span> {</div>
+                        <div class="ps-code-line"><span class="ps-ln">2</span>&nbsp;&nbsp;<span class="ps-attr">background</span>: <span class="ps-str">#0d0d1a</span>;</div>
+                        <div class="ps-code-line ps-cursor-line"><span class="ps-ln">3</span>&nbsp;&nbsp;<span class="ps-attr">color</span>: <span class="ps-str">#cccccc</span>;<span class="ps-cursor-blink">|</span></div>
+                        <div class="ps-code-line"><span class="ps-ln">4</span>}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+              <div class="ps-statusbar">
+                <span>⬤ localhost:7777</span>
+                <span>⎇ main</span>
+                <span>Ln 5, Col 14</span>
+                <span>HTML</span>
+                <span>Auto-reload: on</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       TECH STACK BADGES
+  ════════════════════════════════════════════════════════════════ -->
+  <section class="db-section-sm">
+    <div class="container">
+      <p class="text-center text-muted mb-4 small text-uppercase ls-wide">Powered by</p>
+      <div class="tech-badges d-flex flex-wrap justify-content-center gap-3">
+        <div class="tech-badge"><i class="fa-brands fa-node-js me-2"></i>Node.js</div>
+        <div class="tech-badge"><i class="fa-brands fa-chrome me-2"></i>Chromium</div>
+        <div class="tech-badge"><i class="bi bi-code-slash me-2"></i>Monaco Editor</div>
+        <div class="tech-badge"><i class="fa-brands fa-js me-2"></i>JavaScript</div>
+        <div class="tech-badge"><i class="bi bi-box me-2"></i>Electron</div>
+        <div class="tech-badge"><i class="bi bi-tools me-2"></i>Electron Forge</div>
+        <div class="tech-badge"><i class="bi bi-server me-2"></i>Squirrel</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       PRICING
+  ════════════════════════════════════════════════════════════════ -->
+  <section id="pricing" class="db-section">
+    <div class="container">
+      <div class="section-label">Pricing</div>
+      <h2 class="section-title">Start free. Upgrade when you're ready.</h2>
+      <p class="section-sub">DevBrowser is free forever for personal use. Pro adds power features for professionals and teams.</p>
+
+      <div class="row g-4 justify-content-center mt-2">
+        <!-- Free -->
+        <div class="col-md-5 scroll-reveal">
+          <div class="db-pricing-card">
+            <div class="pricing-tier">Free</div>
+            <div class="pricing-price">$0 <span>/forever</span></div>
+            <div class="pricing-desc">Everything you need to build and preview web projects locally.</div>
+            <ul class="pricing-features">
+              <li><i class="bi bi-check-circle-fill text-success"></i> Monaco code editor</li>
+              <li><i class="bi bi-check-circle-fill text-success"></i> Live browser preview</li>
+              <li><i class="bi bi-check-circle-fill text-success"></i> File explorer &amp; tabs</li>
+              <li><i class="bi bi-check-circle-fill text-success"></i> Integrated terminal</li>
+              <li><i class="bi bi-check-circle-fill text-success"></i> Chrome extension support</li>
+              <li><i class="bi bi-check-circle-fill text-success"></i> Git status panel</li>
+              <li><i class="bi bi-check-circle-fill text-success"></i> Auto-updater</li>
+              <li><i class="bi bi-dash-circle text-muted"></i> <span class="text-muted">Cloud sync</span></li>
+              <li><i class="bi bi-dash-circle text-muted"></i> <span class="text-muted">Team collaboration</span></li>
+              <li><i class="bi bi-dash-circle text-muted"></i> <span class="text-muted">AI code completion</span></li>
+            </ul>
+            <a href="#download" class="btn db-btn-ghost w-100 mt-auto">Download Free</a>
+          </div>
+        </div>
+
+        <!-- Pro -->
+        <div class="col-md-5 scroll-reveal">
+          <div class="db-pricing-card db-pricing-card-pro">
+            <div class="pricing-badge">Coming Soon</div>
+            <div class="pricing-tier">Pro</div>
+            <div class="pricing-price">$7 <span>/month</span></div>
+            <div class="pricing-desc">Advanced tools for professionals building real products.</div>
+            <ul class="pricing-features">
+              <li><i class="bi bi-check-circle-fill text-success"></i> Everything in Free</li>
+              <li><i class="bi bi-check-circle-fill text-success"></i> Cloud project sync</li>
+              <li><i class="bi bi-check-circle-fill text-success"></i> Team collaboration</li>
+              <li><i class="bi bi-check-circle-fill text-success"></i> AI code completion</li>
+              <li><i class="bi bi-check-circle-fill text-success"></i> Custom themes &amp; fonts</li>
+              <li><i class="bi bi-check-circle-fill text-success"></i> Unlimited projects</li>
+              <li><i class="bi bi-check-circle-fill text-success"></i> Priority support</li>
+              <li><i class="bi bi-check-circle-fill text-success"></i> Early access to new features</li>
+              <li><i class="bi bi-check-circle-fill text-success"></i> Export to ZIP / deploy</li>
+              <li><i class="bi bi-check-circle-fill text-success"></i> Custom keyboard shortcuts</li>
+            </ul>
+            <button class="btn db-btn-primary w-100 mt-auto" disabled>Notify Me</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       DOWNLOAD
+  ════════════════════════════════════════════════════════════════ -->
+  <section id="download" class="db-section db-section-cta">
+    <div class="hero-glow hero-glow-1" style="opacity:0.3"></div>
+    <div class="container text-center position-relative">
+      <div class="section-label">Get started today</div>
+      <h2 class="section-title text-white">Download DevBrowser</h2>
+      <p class="section-sub" style="color:rgba(255,255,255,0.7)">Free. No account. No subscription. Just install and start building.</p>
+
+      <div class="d-flex flex-wrap justify-content-center gap-3 mt-4">
+        <a href="https://dstokesncstudio.com/dev-browser/DevBrowser%20Setup.exe" class="btn db-btn-primary btn-lg px-5 scroll-reveal">
+          <i class="bi bi-windows me-2"></i>Download for Windows
+          <div class="btn-sub">Windows 10 / 11 — 64-bit</div>
+        </a>
+        <div class="btn db-btn-ghost btn-lg px-5 disabled opacity-50">
+          <i class="fa-brands fa-apple me-2"></i>macOS — Coming Soon
+          <div class="btn-sub">macOS 12+</div>
+        </div>
+        <div class="btn db-btn-ghost btn-lg px-5 disabled opacity-50">
+          <i class="fa-brands fa-linux me-2"></i>Linux — Coming Soon
+          <div class="btn-sub">.deb / .rpm</div>
+        </div>
+      </div>
+
+      <div class="download-meta d-flex justify-content-center gap-4 flex-wrap mt-4">
+        <span class="text-white-50"><i class="bi bi-shield-check me-1 text-success"></i>Virus-free — scan on VirusTotal</span>
+        <span class="text-white-50"><i class="bi bi-arrow-repeat me-1 text-info"></i>Auto-updates silently</span>
+        <span class="text-white-50"><i class="bi bi-box me-1"></i>~80 MB installer</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       COMMUNITY
+  ════════════════════════════════════════════════════════════════ -->
+  <section id="community" class="db-section">
+    <div class="container">
+      <div class="section-label">Open Source</div>
+      <h2 class="section-title">Built in public. Improved together.</h2>
+      <p class="section-sub">DevBrowser is open source and community-driven. Report bugs, suggest features, or contribute code on GitHub.</p>
+
+      <div class="row g-4 justify-content-center mt-2">
+        <div class="col-sm-6 col-lg-3 scroll-reveal">
+          <a href="https://github.com/robbiestokes21/dev-browser" target="_blank" rel="noopener" class="db-community-card">
+            <i class="fa-brands fa-github fa-2x mb-3"></i>
+            <div class="comm-title">GitHub</div>
+            <div class="comm-desc">Source code, issues, and pull requests</div>
+          </a>
+        </div>
+        <div class="col-sm-6 col-lg-3 scroll-reveal">
+          <a href="#" class="db-community-card">
+            <i class="fa-brands fa-discord fa-2x mb-3"></i>
+            <div class="comm-title">Discord</div>
+            <div class="comm-desc">Chat with the community and get help</div>
+          </a>
+        </div>
+        <div class="col-sm-6 col-lg-3 scroll-reveal">
+          <a href="#" class="db-community-card">
+            <i class="fa-brands fa-x-twitter fa-2x mb-3"></i>
+            <div class="comm-title">X / Twitter</div>
+            <div class="comm-desc">Updates, releases, and dev insights</div>
+          </a>
+        </div>
+        <div class="col-sm-6 col-lg-3 scroll-reveal">
+          <a href="#" class="db-community-card">
+            <i class="fa-brands fa-reddit fa-2x mb-3"></i>
+            <div class="comm-title">Reddit</div>
+            <div class="comm-desc">Discuss on r/webdev and r/SideProject</div>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       FOOTER
+  ════════════════════════════════════════════════════════════════ -->
+  <footer class="db-footer">
+    <div class="container">
+      <div class="row g-5">
+        <div class="col-lg-4">
+          <div class="footer-brand d-flex align-items-center gap-2 mb-3">
+            <img src="icon.png" alt="DevBrowser" class="brand-img brand-img-sm" />
+            <span class="brand-name">DevBrowser</span>
+          </div>
+          <p class="text-muted small">The browser built for developers. Code, preview, and deploy all in one window.</p>
+          <div class="footer-socials d-flex gap-3 mt-3">
+            <a href="https://github.com/robbiestokes21/dev-browser" target="_blank" rel="noopener"><i class="fa-brands fa-github fa-lg"></i></a>
+            <a href="#"><i class="fa-brands fa-discord fa-lg"></i></a>
+            <a href="#"><i class="fa-brands fa-x-twitter fa-lg"></i></a>
+          </div>
+        </div>
+
+        <div class="col-6 col-lg-2">
+          <div class="footer-heading">Product</div>
+          <ul class="footer-links">
+            <li><a href="#features">Features</a></li>
+            <li><a href="#preview">Preview</a></li>
+            <li><a href="#pricing">Pricing</a></li>
+            <li><a href="#download">Download</a></li>
+          </ul>
+        </div>
+
+        <div class="col-6 col-lg-2">
+          <div class="footer-heading">Resources</div>
+          <ul class="footer-links">
+            <li><a href="#">Documentation</a></li>
+            <li><a href="#">Changelog</a></li>
+            <li><a href="#">Roadmap</a></li>
+            <li><a href="https://github.com/robbiestokes21/dev-browser/issues" target="_blank" rel="noopener">Report a Bug</a></li>
+          </ul>
+        </div>
+
+        <div class="col-6 col-lg-2">
+          <div class="footer-heading">Legal</div>
+          <ul class="footer-links">
+            <li><a href="#">Privacy Policy</a></li>
+            <li><a href="#">Terms of Service</a></li>
+            <li><a href="#">License (MIT)</a></li>
+          </ul>
+        </div>
+
+        <div class="col-6 col-lg-2">
+          <div class="footer-heading">Developer</div>
+          <ul class="footer-links">
+            <li><a href="https://dstokesncstudio.com" target="_blank" rel="noopener">dstokesncstudio.com</a></li>
+            <li><a href="https://github.com/robbiestokes21" target="_blank" rel="noopener">GitHub</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <hr class="footer-divider" />
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div class="text-muted small">&copy; 2026 DevBrowser by Robbie Stokes. All rights reserved.</div>
+        <div class="text-muted small">Made with <i class="bi bi-heart-fill text-danger"></i> using Electron &amp; Monaco</div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

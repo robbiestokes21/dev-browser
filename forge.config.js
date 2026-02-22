@@ -77,7 +77,7 @@ module.exports = {
         setupIcon: './assets/icons/icon.ico',
         // Public HTTPS URL to .ico for Control Panel > Programs and Features
         // Replace this with a real URL once you publish your icon somewhere accessible
-        // iconUrl: 'https://raw.githubusercontent.com/robbiestokes21/dev-browser/main/assets/icons/icon.ico',
+        iconUrl: 'https://raw.githubusercontent.com/robbiestokes21/dev-browser/refs/heads/main/assets/icons/icon.ico',
       },
     },
     {
