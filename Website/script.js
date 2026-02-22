@@ -74,3 +74,24 @@ const sectionObserver = new IntersectionObserver((entries) => {
 }, { threshold: 0.4 });
 
 sections.forEach(s => sectionObserver.observe(s));
+
+// ─── Auto-update download link from GitHub Releases ────────────────────────
+(async () => {
+  try {
+    const res = await fetch('https://api.github.com/repos/robbiestokes21/dev-browser/releases/latest');
+    if (!res.ok) return;
+    const release = await res.json();
+
+    const exe = release.assets?.find(a => a.name.toLowerCase().endsWith('.exe'));
+    if (!exe) return;
+
+    const btn     = document.getElementById('win-dl-btn');
+    const version = document.getElementById('win-dl-version');
+    const sizeMB  = Math.round(exe.size / 1024 / 1024);
+
+    if (btn) btn.href = exe.browser_download_url;
+    if (version) version.textContent = `${release.tag_name} · ${sizeMB} MB`;
+  } catch {
+    // silently fall back to the hardcoded href
+  }
+})();

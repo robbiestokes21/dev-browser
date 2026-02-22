@@ -1024,6 +1024,7 @@ ipcMain.handle("export-to-zip", async (_e, { projectPath, outputPath }) => {
 // ─── App lifecycle ────────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
   Menu.setApplicationMenu(null);
+  await license.validateStoredLicense(); // revoke fake/expired keys before window opens
   await loadSavedExtensions();
   setupAutoUpdater();
   createWindow();

@@ -82,6 +82,29 @@ function getLicenseInfo() {
   };
 }
 
+// Runs once at startup — re-validates any stored key against Polar.
+// Wipes the local license if the key is no longer valid (revoked, expired, etc.).
+// Network failures are treated as offline grace (key kept).
+async function validateStoredLicense() {
+  const stored = readLicense();
+  if (!stored.isPro || !stored.key) return;
+
+  try {
+    const res = await fetch('https://api.polar.sh/v1/customer-portal/license-keys/validate', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ key: stored.key, organization_id: POLAR_ORG_ID }),
+    });
+    const data = await res.json();
+
+    if (data.status !== 'granted' && data.valid !== true) {
+      writeLicense({}); // key rejected by Polar → revoke locally
+    }
+  } catch {
+    // Network error — keep existing license (offline grace period)
+  }
+}
+
 // ── Pro settings (custom theme, custom shortcuts, AI API key) ─────────────────
 function getProSettings() {
   try { return JSON.parse(fs.readFileSync(PRO_SETTINGS_PATH, 'utf8')); }
@@ -146,4 +169,4 @@ async function aiComplete({ provider, apiKey, prompt, context }) {
   }
 }
 
-module.exports = { activateLicense, deactivateLicense, isPro, getLicenseInfo, getProSettings, saveProSettings, aiComplete };
+module.exports = { validateStoredLicense, activateLicense, deactivateLicense, isPro, getLicenseInfo, getProSettings, saveProSettings, aiComplete };

@@ -91,6 +91,11 @@ typings/
 # Electron-Forge
 out/
 
+# Code signing certificates — never commit these
+*.pfx
+*.pvk
+*.p12
+
 # claude files
 claude/
 .claude/
