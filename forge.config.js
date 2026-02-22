@@ -26,9 +26,12 @@ const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 // ────────────────────────────────────────────────────────────────────────────
 
 const packagerConfig = {
+  name: 'DevBrowser',
   asar: true,
   // Path to app icon — Forge appends the correct extension (.ico / .icns) per platform
   icon: './assets/icons/icon',
+  osxSign: {},
+  appCategoryType: 'public.app-category.developer-tools'
 };
 
 // ── Windows code signing ─────────────────────────────────────────────────────
@@ -69,36 +72,33 @@ module.exports = {
   packagerConfig,
   rebuildConfig: {},
   makers: [
+    // Windows
     {
       name: '@electron-forge/maker-squirrel',
+      platforms: ['win32'],
       config: {
         name: 'DevBrowser',
-        // Local .ico used as the Setup.exe icon
         setupIcon: './assets/icons/icon.ico',
-        // Public HTTPS URL to .ico for Control Panel > Programs and Features
-        // Replace this with a real URL once you publish your icon somewhere accessible
         iconUrl: 'https://raw.githubusercontent.com/robbiestokes21/dev-browser/refs/heads/main/assets/icons/icon.ico',
       },
     },
-    {
-      name: '@electron-forge/maker-zip',
-      platforms: ['win32', 'darwin'],
-    },
+    { name: '@electron-forge/maker-zip', platforms: ['win32'] },
+
+    // macOS
+    { name: '@electron-forge/maker-zip', platforms: ['darwin'] },
+    // Optional: DMG (recommended for Mac users)
+    { name: '@electron-forge/maker-dmg', platforms: ['darwin'] },
+
+    // Linux
     {
       name: '@electron-forge/maker-deb',
-      config: {
-        options: {
-          icon: './assets/icons/icon.png',
-        },
-      },
+      platforms: ['linux'],
+      config: { options: { icon: './assets/icons/icon.png' } },
     },
     {
       name: '@electron-forge/maker-rpm',
-      config: {
-        options: {
-          icon: './assets/icons/icon.png',
-        },
-      },
+      platforms: ['linux'],
+      config: { options: { icon: './assets/icons/icon.png' } },
     },
   ],
   plugins: [
