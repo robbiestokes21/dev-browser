@@ -83,13 +83,16 @@ module.exports = {
       },
     },
     { name: '@electron-forge/maker-zip', platforms: ['win32'] },
-
+    /*
     // macOS
     { name: '@electron-forge/maker-zip', platforms: ['darwin'] },
     // Optional: DMG (recommended for Mac users)
     { name: '@electron-forge/maker-dmg', platforms: ['darwin'] },
-
+    */
+   
+    /*
     // Linux
+    
     {
       name: '@electron-forge/maker-deb',
       platforms: ['linux'],
@@ -100,6 +103,7 @@ module.exports = {
       platforms: ['linux'],
       config: { options: { icon: './assets/icons/icon.png' } },
     },
+    */
   ],
   plugins: [
     {
