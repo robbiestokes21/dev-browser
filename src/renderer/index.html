@@ -85,17 +85,80 @@
 ════════════════════════════════════════════════════════════════ -->
 <div id="app" class="hidden">
 
-  <!-- Top Toolbar -->
+  <!-- Top Toolbar (title bar + menu bar combined) -->
   <div id="toolbar">
     <div class="toolbar-group">
-      <!-- App icon + name -->
+      <!-- App icon -->
       <div class="app-brand">
         <svg width="16" height="16" viewBox="0 0 48 48" fill="none">
           <polygon points="24,2 44,13 44,35 24,46 4,35 4,13" fill="#7c3aed" opacity="0.3" stroke="#7c3aed" stroke-width="2"/>
           <polygon points="24,10 36,17 36,31 24,38 12,31 12,17" fill="#7c3aed"/>
         </svg>
-        <span class="app-brand-name">DevBrowser</span>
       </div>
+
+      <!-- VS Code-style menu bar -->
+      <nav id="menubar">
+        <div class="menu-item" data-menu="file">
+          <button type="button" class="menu-btn">File</button>
+          <div class="menu-dropdown" id="menu-file">
+            <button type="button" class="menu-dd-item" data-cmd="new-project">New Project</button>
+            <button type="button" class="menu-dd-item" data-cmd="open-project">Open Folder…</button>
+            <div class="menu-dd-sep"></div>
+            <button type="button" class="menu-dd-item" data-cmd="new-file">New File<span class="menu-shortcut"></span></button>
+            <button type="button" class="menu-dd-item" data-cmd="new-folder">New Folder</button>
+            <div class="menu-dd-sep"></div>
+            <button type="button" class="menu-dd-item" data-cmd="save">Save<span class="menu-shortcut">Ctrl+S</span></button>
+          </div>
+        </div>
+
+        <div class="menu-item" data-menu="edit">
+          <button type="button" class="menu-btn">Edit</button>
+          <div class="menu-dropdown" id="menu-edit">
+            <button type="button" class="menu-dd-item" data-cmd="undo">Undo<span class="menu-shortcut">Ctrl+Z</span></button>
+            <button type="button" class="menu-dd-item" data-cmd="redo">Redo<span class="menu-shortcut">Ctrl+Y</span></button>
+            <div class="menu-dd-sep"></div>
+            <button type="button" class="menu-dd-item" data-cmd="find-files">Find in Files<span class="menu-shortcut">Ctrl+Shift+F</span></button>
+            <button type="button" class="menu-dd-item" data-cmd="format">Format Document</button>
+            <div class="menu-dd-sep"></div>
+            <button type="button" class="menu-dd-item" data-cmd="word-wrap">Toggle Word Wrap</button>
+          </div>
+        </div>
+
+        <div class="menu-item" data-menu="view">
+          <button type="button" class="menu-btn">View</button>
+          <div class="menu-dropdown" id="menu-view">
+            <button type="button" class="menu-dd-item" data-cmd="toggle-sidebar">Toggle Sidebar<span class="menu-shortcut">Ctrl+B</span></button>
+            <button type="button" class="menu-dd-item" data-cmd="toggle-browser">Toggle Browser Panel</button>
+            <button type="button" class="menu-dd-item" data-cmd="toggle-bottom">Toggle Terminal Panel<span class="menu-shortcut">Ctrl+`</span></button>
+            <div class="menu-dd-sep"></div>
+            <button type="button" class="menu-dd-item" data-cmd="resp-desktop">Desktop View</button>
+            <button type="button" class="menu-dd-item" data-cmd="resp-tablet">Tablet View (768px)</button>
+            <button type="button" class="menu-dd-item" data-cmd="resp-mobile">Mobile View (375px)</button>
+            <div class="menu-dd-sep"></div>
+            <button type="button" class="menu-dd-item" data-cmd="cmd-palette">Command Palette<span class="menu-shortcut">Ctrl+Shift+P</span></button>
+          </div>
+        </div>
+
+        <div class="menu-item" data-menu="terminal">
+          <button type="button" class="menu-btn">Terminal</button>
+          <div class="menu-dropdown" id="menu-terminal">
+            <button type="button" class="menu-dd-item" data-cmd="open-terminal">New Terminal<span class="menu-shortcut">Ctrl+`</span></button>
+            <button type="button" class="menu-dd-item" data-cmd="clear-terminal">Clear Terminal</button>
+            <button type="button" class="menu-dd-item" data-cmd="kill-terminal">Kill Terminal</button>
+          </div>
+        </div>
+
+        <div class="menu-item" data-menu="help">
+          <button type="button" class="menu-btn">Help</button>
+          <div class="menu-dropdown" id="menu-help">
+            <button type="button" class="menu-dd-item" data-cmd="cmd-palette">Command Palette<span class="menu-shortcut">Ctrl+Shift+P</span></button>
+            <div class="menu-dd-sep"></div>
+            <button type="button" class="menu-dd-item" data-cmd="check-updates">Check for Updates</button>
+            <button type="button" class="menu-dd-item" data-cmd="about">About DevBrowser</button>
+          </div>
+        </div>
+      </nav>
+
       <div class="toolbar-sep"></div>
       <button id="btn-sidebar-toggle" class="tool-btn icon-only" title="Toggle Sidebar (Ctrl+B)">☰</button>
       <div class="toolbar-sep"></div>
@@ -103,15 +166,12 @@
     </div>
 
     <div class="toolbar-group flex-1 justify-center">
-      <!-- intentionally empty — browser toolbar is inside browser pane -->
+      <!-- draggable title area -->
     </div>
 
     <div class="toolbar-group">
       <button id="btn-find-files" class="tool-btn" title="Find in Files (Ctrl+Shift+F)">🔍 Find</button>
       <button id="btn-cmd-palette" class="tool-btn" title="Command Palette (Ctrl+Shift+P)">⌘ Commands</button>
-      <div class="toolbar-sep"></div>
-      <button id="btn-new-project-toolbar" class="tool-btn" title="New Project">+ New</button>
-      <button id="btn-open-project-toolbar" class="tool-btn" title="Open Folder">Open</button>
       <div class="toolbar-sep"></div>
       <button id="btn-extensions" class="tool-btn" title="Extensions &amp; Settings">⚙ Settings</button>
       <button id="btn-pro-badge" class="tool-btn pro-badge hidden" title="DevBrowser Pro — Manage License">★ Pro</button>
@@ -127,6 +187,13 @@
       </div>
     </div>
   </div>
+
+  <!-- Menu backdrop (closes menus on outside click) -->
+  <div id="menubar-backdrop"></div>
+
+  <!-- Hidden trigger buttons (referenced by renderer.js) -->
+  <button type="button" id="btn-new-project-toolbar" class="hidden" aria-hidden="true"></button>
+  <button type="button" id="btn-open-project-toolbar" class="hidden" aria-hidden="true"></button>
 
   <!-- Main area (workspace + bottom panel) -->
   <div id="main-area">
@@ -176,6 +243,9 @@
       <!-- Drag handle: editor ↔ browser -->
       <div class="divider" id="divider-browser" data-target="browser-pane" data-axis="x" data-reverse="true"></div>
 
+      <!-- Show-browser button (visible only when browser pane is closed) -->
+      <button type="button" id="btn-show-browser" title="Show Browser Panel">◀</button>
+
       <!-- Browser Pane -->
       <div id="browser-pane">
         <!-- Browser Tab Bar (like a real browser) -->
@@ -184,23 +254,50 @@
             <div id="browser-tabs"></div>
           </div>
           <button type="button" id="btn-new-browser-tab" title="New Tab">+</button>
+          <div class="toolbar-sep browser-tab-sep"></div>
+          <button type="button" id="btn-close-browser" class="icon-btn" title="Close Browser Panel">✕</button>
         </div>
 
         <!-- Mini browser toolbar -->
         <div id="browser-toolbar">
-          <button class="nav-btn" id="back" title="Back">◀</button>
-          <button class="nav-btn" id="forward" title="Forward">▶</button>
-          <button class="nav-btn" id="reload-browser" title="Reload">⟳</button>
+          <button type="button" class="nav-btn" id="back" title="Back">◀</button>
+          <button type="button" class="nav-btn" id="forward" title="Forward">▶</button>
+          <button type="button" class="nav-btn" id="reload-browser" title="Reload">⟳</button>
           <input id="url" type="text" class="url-bar" placeholder="http://localhost:7777" />
-          <button class="nav-btn go-btn" id="go">Go</button>
+          <button type="button" class="nav-btn go-btn" id="go">Go</button>
           <div class="toolbar-sep"></div>
-          <!-- Responsive preview -->
-          <button class="resp-btn active" id="resp-desktop" title="Desktop view">🖥</button>
-          <button class="resp-btn" id="resp-tablet" title="Tablet (768px)">📲</button>
-          <button class="resp-btn" id="resp-mobile" title="Mobile (375px)">📱</button>
+          <!-- Chrome DevTools-style device picker -->
+          <select id="resp-device-select" class="resp-device-select" title="Choose device">
+            <option value="responsive">Responsive</option>
+            <optgroup label="── Mobile ──">
+              <option value="375x667">iPhone SE (375×667)</option>
+              <option value="390x844">iPhone 12/13/14 (390×844)</option>
+              <option value="430x932">iPhone 14 Pro Max (430×932)</option>
+              <option value="412x915">Pixel 7 / Galaxy S20 (412×915)</option>
+              <option value="360x800">Galaxy S21 (360×800)</option>
+            </optgroup>
+            <optgroup label="── Tablet ──">
+              <option value="768x1024">iPad Mini (768×1024)</option>
+              <option value="820x1180">iPad Air (820×1180)</option>
+              <option value="1024x1366">iPad Pro 12.9" (1024×1366)</option>
+              <option value="912x1368">Surface Pro 7 (912×1368)</option>
+            </optgroup>
+            <optgroup label="── Desktop ──">
+              <option value="1280x720">Laptop (1280×720)</option>
+              <option value="1440x900">Laptop L (1440×900)</option>
+              <option value="1920x1080">Desktop HD (1920×1080)</option>
+            </optgroup>
+          </select>
+          <input type="number" id="resp-width"  class="resp-dim-input" min="240" max="3840" value="375" title="Width (px)" />
+          <span class="resp-dim-x">×</span>
+          <input type="number" id="resp-height" class="resp-dim-input" min="240" max="3840" value="667" title="Height (px)" />
+          <button type="button" id="resp-rotate" class="nav-btn" title="Rotate (swap width/height)">⟳</button>
           <div class="toolbar-sep"></div>
           <!-- Auto-reload toggle -->
           <button type="button" class="nav-btn auto-reload-btn" id="btn-auto-reload" title="Auto-reload on save (toggle)">Auto ⟳</button>
+          <div class="toolbar-sep"></div>
+          <!-- phpMyAdmin quick-launch -->
+          <button type="button" class="nav-btn pma-btn" id="btn-phpmyadmin" title="Open phpMyAdmin">PMA</button>
         </div>
         <!-- Webview container — webviews are injected dynamically -->
         <div id="webview-scroll"></div>
@@ -214,11 +311,11 @@
     <!-- Bottom Panel (Terminal / Console / Git) -->
     <div id="bottom-panel">
       <div id="bottom-tabs">
-        <button class="btab active" data-btab="terminal">Terminal</button>
-        <button class="btab" data-btab="console">Console</button>
-        <button class="btab" data-btab="git">Git</button>
+        <button type="button" class="btab active" data-btab="terminal">Terminal</button>
+        <button type="button" class="btab" data-btab="console">Console</button>
+        <button type="button" class="btab" data-btab="git">Git</button>
         <span class="btab-spacer"></span>
-        <button id="btn-bottom-toggle" class="icon-btn" title="Toggle Panel">▼</button>
+        <button type="button" id="btn-bottom-toggle" class="icon-btn" title="Toggle Panel">▼</button>
       </div>
 
       <!-- Terminal panel -->
@@ -228,16 +325,16 @@
           <span class="term-cwd" id="term-cwd">~</span>
           <span class="term-prompt">$</span>
           <input id="terminal-input" type="text" autocomplete="off" spellcheck="false" placeholder="npm install, git status, …" />
-          <button id="btn-term-run" class="term-action-btn" title="Run">▶</button>
-          <button id="btn-term-kill" class="term-action-btn" title="Kill process">■</button>
-          <button id="btn-term-clear" class="term-action-btn" title="Clear">✕</button>
+          <button type="button" id="btn-term-run" class="term-action-btn" title="Run">▶</button>
+          <button type="button" id="btn-term-kill" class="term-action-btn" title="Kill process">■</button>
+          <button type="button" id="btn-term-clear" class="term-action-btn" title="Clear">✕</button>
         </div>
       </div>
 
       <!-- Console panel -->
       <div class="btab-content hidden" id="bpanel-console">
         <div id="console-toolbar">
-          <button id="btn-clear-console" class="icon-btn">Clear</button>
+          <button type="button" id="btn-clear-console" class="icon-btn">Clear</button>
           <span id="console-count" class="console-count"></span>
         </div>
         <div id="console-output"></div>
@@ -246,7 +343,7 @@
       <!-- Git panel -->
       <div class="btab-content hidden" id="bpanel-git">
         <div id="git-toolbar">
-          <button id="btn-git-refresh" class="icon-btn">⟳ Refresh</button>
+          <button type="button" id="btn-git-refresh" class="icon-btn">⟳ Refresh</button>
           <span id="git-branch-badge" class="git-branch-badge"></span>
         </div>
         <div id="git-output"></div>
@@ -347,6 +444,145 @@
       <h2>Extensions &amp; Settings</h2>
       <button type="button" id="btn-close-ext" class="dialog-close">✕</button>
     </div>
+
+    <!-- ═══════════ SERVER & BACKEND (ALL USERS) ═══════════ -->
+    <div class="ext-section" id="section-server-backend">
+      <div class="section-label">Server &amp; Backend</div>
+
+      <!-- Server Port -->
+      <div class="server-subsection">
+        <div class="server-subsection-title">Local Server Port</div>
+        <div class="settings-row">
+          <div class="setting-item">
+            <label class="setting-label" for="server-port">Default Port</label>
+            <input type="number" id="server-port" class="field-input" min="1024" max="65535" value="7777" style="width:110px" />
+          </div>
+          <div class="setting-item" style="align-self:flex-end">
+            <button type="button" id="btn-save-server-port" class="btn-primary">Save Port</button>
+          </div>
+        </div>
+        <p class="ext-note" id="server-port-note" style="margin-top:4px"></p>
+      </div>
+
+      <!-- Backend Engine -->
+      <div class="server-subsection">
+        <div class="server-subsection-title">Backend Engine</div>
+        <div class="ext-list" style="gap:0.5rem">
+          <label class="ext-item radio-item">
+            <input type="radio" name="server-type" id="server-type-static" value="static" checked />
+            <div class="ext-info">
+              <div class="ext-name">Static (Node.js)</div>
+              <div class="ext-desc">Serves HTML/CSS/JS files — fastest for frontend projects</div>
+            </div>
+          </label>
+          <label class="ext-item radio-item">
+            <input type="radio" name="server-type" id="server-type-php" value="php" />
+            <div class="ext-info">
+              <div class="ext-name">PHP CLI Server</div>
+              <div class="ext-desc">Runs <code>php -S localhost:PORT -t projectPath</code> — required for .php files</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- PHP Installation -->
+      <div class="server-subsection">
+        <div class="server-subsection-title">PHP Installation</div>
+        <div id="php-detect-list" class="php-detect-list">
+          <span class="ext-note">Click Re-scan to detect PHP…</span>
+        </div>
+        <div class="settings-row" style="margin-top:0.5rem">
+          <div class="setting-item setting-item-grow">
+            <label class="setting-label" for="php-binary-path">Active Binary</label>
+            <input type="text" id="php-binary-path" class="field-input field-input-full" placeholder="php (from PATH) or full path to php.exe" readonly />
+          </div>
+        </div>
+        <div class="ext-section-footer">
+          <button type="button" id="btn-php-detect" class="btn-secondary">⟳ Re-scan</button>
+          <button type="button" id="btn-php-download" class="btn-secondary">↗ Download PHP</button>
+          <span id="php-version-note" class="ext-note"></span>
+        </div>
+      </div>
+
+      <!-- PHP Extensions -->
+      <div class="server-subsection">
+        <div class="server-subsection-title">PHP Extensions</div>
+        <div class="ext-list">
+          <label class="ext-item">
+            <div class="ext-info">
+              <div class="ext-name">PDO MySQL</div>
+              <div class="ext-desc">PDO driver for MySQL — required by Laravel, Symfony, and most PHP frameworks</div>
+            </div>
+            <div class="toggle"><input type="checkbox" id="php-ext-pdo-mysql"><span class="toggle-track"></span></div>
+          </label>
+          <label class="ext-item">
+            <div class="ext-info">
+              <div class="ext-name">MySQLi</div>
+              <div class="ext-desc">Procedural MySQL extension — required by phpMyAdmin and older PHP code</div>
+            </div>
+            <div class="toggle"><input type="checkbox" id="php-ext-mysqli"><span class="toggle-track"></span></div>
+          </label>
+        </div>
+        <div class="ext-section-footer">
+          <button type="button" id="btn-php-save-exts" class="btn-primary">Apply Extensions</button>
+          <span id="php-ext-note" class="ext-note"></span>
+        </div>
+      </div>
+
+      <!-- MySQL -->
+      <div class="server-subsection">
+        <div class="server-subsection-title">MySQL / MariaDB</div>
+        <div class="settings-row" style="align-items:center;gap:0.75rem;margin-bottom:0.75rem">
+          <span id="mysql-status-dot" class="status-dot status-dot-off"></span>
+          <span id="mysql-status-text" class="ext-note">Checking…</span>
+          <button type="button" id="btn-mysql-start" class="btn-secondary hidden">▶ Start MySQL</button>
+          <button type="button" id="btn-mysql-stop"  class="btn-secondary hidden">■ Stop MySQL</button>
+        </div>
+        <div class="settings-row" style="flex-wrap:wrap;gap:0.5rem">
+          <div class="setting-item">
+            <label class="setting-label" for="mysql-host">Host</label>
+            <input type="text" id="mysql-host" class="field-input" value="127.0.0.1" style="width:130px" autocomplete="off" />
+          </div>
+          <div class="setting-item">
+            <label class="setting-label" for="mysql-port">Port</label>
+            <input type="number" id="mysql-port" class="field-input" value="3306" style="width:85px" />
+          </div>
+          <div class="setting-item">
+            <label class="setting-label" for="mysql-user">User</label>
+            <input type="text" id="mysql-user" class="field-input" value="root" style="width:110px" autocomplete="off" />
+          </div>
+          <div class="setting-item">
+            <label class="setting-label" for="mysql-password">Password</label>
+            <input type="password" id="mysql-password" class="field-input" style="width:130px" autocomplete="new-password" />
+          </div>
+        </div>
+        <div class="ext-section-footer">
+          <button type="button" id="btn-save-mysql-config" class="btn-primary">Save MySQL Config</button>
+          <span id="mysql-note" class="ext-note"></span>
+        </div>
+      </div>
+
+      <!-- phpMyAdmin -->
+      <div class="server-subsection" style="border-bottom:none;margin-bottom:0">
+        <div class="server-subsection-title">phpMyAdmin</div>
+        <div class="settings-row" style="align-items:center;gap:0.75rem;margin-bottom:0.75rem">
+          <span id="pma-status-dot" class="status-dot status-dot-off"></span>
+          <span id="pma-status-text" class="ext-note">Not installed</span>
+        </div>
+        <div id="pma-progress-wrap" class="hidden" style="margin-bottom:0.75rem">
+          <div class="progress-bar-track">
+            <div id="pma-progress-bar" class="progress-bar-fill" style="width:0%"></div>
+          </div>
+          <span id="pma-progress-label" class="ext-note" style="margin-top:4px;display:block"></span>
+        </div>
+        <div class="ext-section-footer">
+          <button type="button" id="btn-pma-download" class="btn-secondary">↓ Download phpMyAdmin</button>
+          <button type="button" id="btn-pma-start"    class="btn-primary hidden">▶ Start phpMyAdmin</button>
+          <button type="button" id="btn-pma-stop"     class="btn-secondary hidden">■ Stop phpMyAdmin</button>
+          <button type="button" id="btn-pma-open"     class="btn-secondary hidden">↗ Open in Browser</button>
+        </div>
+      </div>
+    </div><!-- /section-server-backend -->
 
     <!-- Chrome / Browser Extensions -->
     <div class="ext-section">
@@ -457,15 +693,22 @@
         <div class="setting-item setting-item-grow">
           <label class="setting-label" for="pro-ai-provider">Provider</label>
           <select id="pro-ai-provider" class="setting-select">
-            <option value="openai">OpenAI (GPT-4o mini)</option>
-            <option value="anthropic">Anthropic (Claude Haiku)</option>
+            <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic (Claude)</option>
+            <option value="gemini">Google Gemini</option>
+          </select>
+        </div>
+        <div class="setting-item setting-item-grow">
+          <label class="setting-label" for="pro-ai-model">Model</label>
+          <select id="pro-ai-model" class="setting-select">
+            <!-- populated by JS based on provider -->
           </select>
         </div>
       </div>
       <div class="settings-row">
         <div class="setting-item setting-item-grow">
           <label class="setting-label" for="pro-ai-key">API Key</label>
-          <input type="password" id="pro-ai-key" class="field-input field-input-full" placeholder="sk-… or sk-ant-…" autocomplete="off" />
+          <input type="password" id="pro-ai-key" class="field-input field-input-full" placeholder="sk-… or sk-ant-… or AIza…" autocomplete="off" />
         </div>
       </div>
     </div>
@@ -553,14 +796,30 @@
      CONTEXT MENU
 ════════════════════════════════════════════════════════════════ -->
 <div id="ctx-menu">
-  <button class="ctx-item" data-action="new-file">＋ New File Here</button>
-  <button class="ctx-item" data-action="new-folder">＋ New Folder Here</button>
+  <!-- Folder-only actions -->
+  <button type="button" class="ctx-item ctx-folder-only" data-action="new-file">New File…</button>
+  <button type="button" class="ctx-item ctx-folder-only" data-action="new-folder">New Folder…</button>
+  <div class="ctx-sep ctx-folder-only"></div>
+
+  <!-- Common actions -->
+  <button type="button" class="ctx-item" data-action="reveal-explorer">Reveal in File Explorer<span class="ctx-shortcut">Shift+Alt+R</span></button>
+  <button type="button" class="ctx-item" data-action="open-terminal">Open in Integrated Terminal</button>
   <div class="ctx-sep"></div>
-  <button class="ctx-item" data-action="rename">✏ Rename</button>
-  <button class="ctx-item" data-action="duplicate">⧉ Duplicate</button>
-  <button class="ctx-item" data-action="copy-path">📋 Copy Path</button>
+
+  <!-- File-only actions -->
+  <button type="button" class="ctx-item ctx-file-only" data-action="duplicate">Duplicate</button>
+  <button type="button" class="ctx-item ctx-file-only ctx-sep-after" data-action="find-in-folder">Find in Folder…</button>
+  <div class="ctx-sep ctx-file-only"></div>
+
+  <button type="button" class="ctx-item" data-action="copy-path">Copy Path<span class="ctx-shortcut">Shift+Alt+C</span></button>
+  <button type="button" class="ctx-item" data-action="copy-relative-path">Copy Relative Path</button>
   <div class="ctx-sep"></div>
-  <button class="ctx-item ctx-danger" data-action="delete">🗑 Delete</button>
+
+  <button type="button" class="ctx-item" data-action="compress-zip">Compress to ZIP…</button>
+  <div class="ctx-sep"></div>
+
+  <button type="button" class="ctx-item" data-action="rename">Rename…<span class="ctx-shortcut">F2</span></button>
+  <button type="button" class="ctx-item ctx-danger" data-action="delete">Delete<span class="ctx-shortcut">Del</span></button>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
@@ -580,7 +839,7 @@
 <div id="find-overlay" class="hidden">
   <div class="find-header">
     <span>Find in Files</span>
-    <button id="btn-find-close" class="icon-btn">✕</button>
+    <button type="button" id="btn-find-close" class="icon-btn">✕</button>
   </div>
   <div class="find-row">
     <input id="find-query" type="text" placeholder="Search across all files…" autocomplete="off" />
@@ -588,7 +847,7 @@
       <input type="checkbox" id="find-case" />
       <span>Aa</span>
     </label>
-    <button id="btn-find-search" class="btn-primary">Search</button>
+    <button type="button" id="btn-find-search" class="btn-primary">Search</button>
   </div>
   <div id="find-results"></div>
 </div>

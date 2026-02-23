@@ -1,16 +1,21 @@
 // Handle Squirrel.Windows installer events (must be first)
 if (require('electron-squirrel-startup')) process.exit(0);
 
-const { app, BrowserWindow, ipcMain, dialog, Menu, session, autoUpdater } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, Menu, session, autoUpdater, shell } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const http = require("http");
+const https = require("https");
+const net = require("net");
 const { spawn, execFile } = require("child_process");
 const license = require("./license");
+const serverCfg = require("./server-config");
 
 let mainWindow = null;
 let editorWindow = null;
 let localServer = null;
+let phpServer = null;   // PHP CLI server for project
+let pmaServer = null;   // PHP CLI server for phpMyAdmin
 let currentEditorFile = null;
 let fileWatcher = null;
 let terminalProcess = null;
@@ -94,7 +99,8 @@ const MIME = {
 };
 
 // ─── Local HTTP server ───────────────────────────────────────────────────────
-function startLocalServer(projectPath, port = 7777) {
+function startLocalServer(projectPath, port) {
+  if (port === undefined) port = serverCfg.getServerConfig().port || 7777;
   return new Promise((resolve, reject) => {
     if (localServer) {
       localServer.close();
@@ -141,6 +147,386 @@ function startLocalServer(projectPath, port = 7777) {
       }
     });
   });
+}
+
+// ─── PHP Detection ────────────────────────────────────────────────────────────
+async function detectPhpBinaries() {
+  const results = [];
+
+  async function tryBinary(binPath) {
+    return new Promise(resolve => {
+      execFile(binPath, ['--version'], { timeout: 3000, windowsHide: true }, (err, stdout) => {
+        if (!err && stdout.includes('PHP')) {
+          const match = stdout.match(/PHP (\S+)/);
+          resolve({ path: binPath, version: match ? match[1] : 'unknown' });
+        } else {
+          resolve(null);
+        }
+      });
+    });
+  }
+
+  // 1. Check PATH-available 'php'
+  const fromPath = await tryBinary('php');
+  if (fromPath) results.push(fromPath);
+
+  // 2. Fixed XAMPP path
+  const xamppPhp = 'C:\\xampp\\php\\php.exe';
+  if (fs.existsSync(xamppPhp) && !results.find(r => r.path === xamppPhp)) {
+    const info = await tryBinary(xamppPhp);
+    if (info) results.push(info);
+  }
+
+  // 3. WAMP: scan C:\wamp64\bin\php\phpX.Y.Z\php.exe subdirs
+  const wampBase = 'C:\\wamp64\\bin\\php';
+  if (fs.existsSync(wampBase)) {
+    try {
+      const subdirs = fs.readdirSync(wampBase, { withFileTypes: true })
+        .filter(e => e.isDirectory())
+        .map(e => path.join(wampBase, e.name, 'php.exe'));
+      for (const candidate of subdirs) {
+        if (fs.existsSync(candidate) && !results.find(r => r.path === candidate)) {
+          const info = await tryBinary(candidate);
+          if (info) results.push(info);
+        }
+      }
+    } catch {}
+  }
+
+  // 4. Laragon: scan C:\laragon\bin\php\php-X.Y.Z-*\php.exe subdirs
+  const laragonBase = 'C:\\laragon\\bin\\php';
+  if (fs.existsSync(laragonBase)) {
+    try {
+      const subdirs = fs.readdirSync(laragonBase, { withFileTypes: true })
+        .filter(e => e.isDirectory())
+        .map(e => path.join(laragonBase, e.name, 'php.exe'));
+      for (const candidate of subdirs) {
+        if (fs.existsSync(candidate) && !results.find(r => r.path === candidate)) {
+          const info = await tryBinary(candidate);
+          if (info) results.push(info);
+        }
+      }
+    } catch {}
+  }
+
+  return results;
+}
+
+// ─── PHP CLI Server ───────────────────────────────────────────────────────────
+function startPhpServer(projectPath, cfg) {
+  return new Promise(resolve => {
+    if (phpServer) { try { phpServer.kill(); } catch {} phpServer = null; }
+
+    const port   = cfg.port || 7777;
+    const binary = cfg.phpBinary || 'php';
+
+    try {
+      phpServer = spawn(binary, ['-S', `127.0.0.1:${port}`, '-t', projectPath], {
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+
+      phpServer.on('error', err => {
+        phpServer = null;
+        resolve({ success: false, error: err.message });
+      });
+
+      // Give PHP a moment to bind
+      setTimeout(() => {
+        if (phpServer && !phpServer.killed) {
+          resolve({ success: true, port });
+        }
+      }, 600);
+
+      phpServer.on('close', code => {
+        phpServer = null;
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('php-server-stopped', { code });
+        }
+      });
+    } catch (err) {
+      resolve({ success: false, error: err.message });
+    }
+  });
+}
+
+// ─── PHP Extension Check / Configure ─────────────────────────────────────────
+async function checkPhpExtensions(phpBinary) {
+  return new Promise(resolve => {
+    execFile(phpBinary || 'php', ['-m'], { timeout: 3000, windowsHide: true }, (err, stdout) => {
+      if (err) return resolve({ success: false, pdo_mysql: false, mysqli: false });
+      const lower = stdout.toLowerCase();
+      resolve({ success: true, pdo_mysql: lower.includes('pdo_mysql'), mysqli: lower.includes('mysqli') });
+    });
+  });
+}
+
+async function configurePhpExtensions(phpBinary, extensions) {
+  // Get php.ini path via php --ini
+  const iniPath = await new Promise(resolve => {
+    execFile(phpBinary || 'php', ['--ini'], { timeout: 3000, windowsHide: true }, (err, stdout) => {
+      if (err) return resolve(null);
+      const match = stdout.match(/Loaded Configuration File:\s*(.+)/);
+      resolve(match ? match[1].trim() : null);
+    });
+  });
+
+  if (!iniPath || !fs.existsSync(iniPath)) {
+    return { success: false, error: 'php.ini not found. Ensure PHP is installed and a php.ini exists.' };
+  }
+
+  let content;
+  try { content = fs.readFileSync(iniPath, 'utf8'); } catch (e) {
+    return { success: false, error: `Cannot read php.ini: ${e.message}` };
+  }
+
+  function setExtension(name, enabled) {
+    const commentedRe = new RegExp(`^;\\s*(extension\\s*=\\s*${name})`, 'mi');
+    const activeRe    = new RegExp(`^(extension\\s*=\\s*${name})`, 'mi');
+    if (enabled) {
+      if (commentedRe.test(content)) {
+        content = content.replace(commentedRe, '$1');
+      } else if (!activeRe.test(content)) {
+        content += `\nextension=${name}\n`;
+      }
+    } else {
+      content = content.replace(activeRe, ';$1');
+    }
+  }
+
+  if (extensions.pdo_mysql !== undefined) setExtension('pdo_mysql', extensions.pdo_mysql);
+  if (extensions.mysqli    !== undefined) setExtension('mysqli',    extensions.mysqli);
+
+  try {
+    fs.writeFileSync(iniPath, content, 'utf8');
+    return { success: true, iniPath };
+  } catch (err) {
+    return { success: false, error: `Cannot write php.ini: ${err.message}. Try running as administrator.` };
+  }
+}
+
+// ─── MySQL Detection / Start / Stop ──────────────────────────────────────────
+function detectMysql() {
+  return new Promise(resolve => {
+    const socket = new net.Socket();
+    socket.setTimeout(2000);
+    socket.connect(3306, '127.0.0.1', () => {
+      socket.destroy();
+      resolve({ running: true });
+    });
+    socket.on('error', () => resolve({ running: false }));
+    socket.on('timeout', () => { socket.destroy(); resolve({ running: false }); });
+  });
+}
+
+function detectXamppMysql() {
+  const candidates = [
+    'C:\\xampp\\mysql\\bin\\mysqld.exe',
+    'C:\\XAMPP\\mysql\\bin\\mysqld.exe',
+  ];
+  return candidates.find(p => fs.existsSync(p)) || null;
+}
+
+async function mysqlStart() {
+  const mysqldPath = detectXamppMysql();
+  if (mysqldPath) {
+    return new Promise(resolve => {
+      try {
+        const proc = spawn(mysqldPath, ['--standalone'], {
+          detached: true, stdio: 'ignore', windowsHide: true,
+        });
+        proc.unref();
+        // Give it a moment to start up
+        setTimeout(() => resolve({ success: true }), 2000);
+        proc.on('error', err => resolve({ success: false, error: err.message }));
+      } catch (err) {
+        resolve({ success: false, error: err.message });
+      }
+    });
+  }
+  // Fall back to Windows service
+  return new Promise(resolve => {
+    const proc = spawn('net', ['start', 'MySQL'], { shell: true, windowsHide: true });
+    proc.on('close', code => resolve({ success: code === 0 }));
+    proc.on('error', err => resolve({ success: false, error: err.message }));
+  });
+}
+
+async function mysqlStop() {
+  const mysqldPath = detectXamppMysql();
+  if (mysqldPath) {
+    return new Promise(resolve => {
+      const proc = spawn('taskkill', ['/F', '/IM', 'mysqld.exe'], { windowsHide: true });
+      proc.on('close', code => resolve({ success: code === 0 }));
+      proc.on('error', err => resolve({ success: false, error: err.message }));
+    });
+  }
+  return new Promise(resolve => {
+    const proc = spawn('net', ['stop', 'MySQL'], { shell: true, windowsHide: true });
+    proc.on('close', code => resolve({ success: code === 0 }));
+    proc.on('error', err => resolve({ success: false, error: err.message }));
+  });
+}
+
+// ─── phpMyAdmin Download / Serve ──────────────────────────────────────────────
+const PMA_DIR      = () => path.join(app.getPath('userData'), 'phpmyadmin');
+const PMA_ZIP_PATH = () => path.join(app.getPath('userData'), 'phpmyadmin-latest.zip');
+const PMA_DOWNLOAD_URL = 'https://files.phpmyadmin.net/phpMyAdmin/latest/phpMyAdmin-latest-all-languages.zip';
+
+function phpMyAdminInstalled() {
+  const dir = PMA_DIR();
+  try {
+    return fs.existsSync(dir) && fs.readdirSync(dir).length > 0;
+  } catch { return false; }
+}
+
+function flattenPhpMyAdminDir(destDir) {
+  try {
+    const entries = fs.readdirSync(destDir, { withFileTypes: true })
+      .filter(e => e.isDirectory() && e.name.toLowerCase().startsWith('phpmyadmin'));
+    if (entries.length !== 1) return;
+    const nested = path.join(destDir, entries[0].name);
+    const files  = fs.readdirSync(nested);
+    for (const f of files) {
+      const src  = path.join(nested, f);
+      const dest = path.join(destDir, f);
+      if (!fs.existsSync(dest)) fs.renameSync(src, dest);
+    }
+    try { fs.rmdirSync(nested); } catch {}
+  } catch {}
+}
+
+async function extractPhpMyAdmin(zipPath) {
+  const destDir = PMA_DIR();
+  fs.mkdirSync(destDir, { recursive: true });
+
+  // Try adm-zip first
+  try {
+    const AdmZip = require('adm-zip');
+    const zip    = new AdmZip(zipPath);
+    zip.extractAllTo(destDir, true);
+    flattenPhpMyAdminDir(destDir);
+    return;
+  } catch {}
+
+  // Try unzipper
+  try {
+    const unzipper = require('unzipper');
+    await new Promise((resolve, reject) => {
+      fs.createReadStream(zipPath)
+        .pipe(unzipper.Extract({ path: destDir }))
+        .on('close', resolve)
+        .on('error', reject);
+    });
+    flattenPhpMyAdminDir(destDir);
+    return;
+  } catch {}
+
+  // Fall back to PowerShell Expand-Archive (always available Win10+)
+  await new Promise((resolve, reject) => {
+    const ps = spawn('powershell', [
+      '-NoProfile', '-NonInteractive', '-Command',
+      `Expand-Archive -Force -Path "${zipPath}" -DestinationPath "${destDir}"`,
+    ], { windowsHide: true });
+    ps.on('close', code => code === 0 ? resolve() : reject(new Error(`PowerShell exited ${code}`)));
+    ps.on('error', reject);
+  });
+  flattenPhpMyAdminDir(destDir);
+}
+
+function downloadPhpMyAdmin() {
+  return new Promise((resolve, reject) => {
+    const zipPath = PMA_ZIP_PATH();
+    const file    = fs.createWriteStream(zipPath);
+
+    let totalBytes    = 0;
+    let receivedBytes = 0;
+
+    function sendProgress(percent, status) {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('phpmyadmin-progress', { percent, status });
+      }
+    }
+
+    function doRequest(url, redirectCount) {
+      redirectCount = redirectCount || 0;
+      if (redirectCount > 5) { file.close(); return reject(new Error('Too many redirects')); }
+      https.get(url, { timeout: 60000 }, res => {
+        if (res.statusCode === 301 || res.statusCode === 302) {
+          return doRequest(res.headers.location, redirectCount + 1);
+        }
+        if (res.statusCode !== 200) {
+          file.close();
+          return reject(new Error(`HTTP ${res.statusCode}`));
+        }
+        totalBytes = parseInt(res.headers['content-length'] || '0', 10);
+        sendProgress(0, 'downloading');
+
+        res.on('data', chunk => {
+          receivedBytes += chunk.length;
+          if (totalBytes > 0) {
+            sendProgress(Math.round((receivedBytes / totalBytes) * 80), 'downloading');
+          }
+        });
+
+        res.pipe(file);
+        file.on('finish', () => {
+          file.close(() => {
+            sendProgress(80, 'extracting');
+            extractPhpMyAdmin(zipPath)
+              .then(() => { sendProgress(100, 'done'); resolve(); })
+              .catch(err => { reject(err); });
+          });
+        });
+        file.on('error', err => {
+          try { fs.unlinkSync(zipPath); } catch {}
+          reject(err);
+        });
+      }).on('error', err => {
+        file.close();
+        reject(err);
+      });
+    }
+
+    doRequest(PMA_DOWNLOAD_URL);
+  });
+}
+
+async function startPhpMyAdmin(cfg) {
+  if (pmaServer) return { success: true, port: cfg.phpMyAdminPort || 7799 };
+
+  const pmaDir = PMA_DIR();
+  if (!phpMyAdminInstalled()) return { success: false, error: 'phpMyAdmin not installed.' };
+
+  const phpBinary = cfg.phpBinary || 'php';
+  const port      = cfg.phpMyAdminPort || 7799;
+
+  return new Promise(resolve => {
+    try {
+      pmaServer = spawn(phpBinary, ['-S', `127.0.0.1:${port}`, '-t', pmaDir], {
+        windowsHide: true, stdio: 'ignore',
+      });
+      pmaServer.on('error', err => { pmaServer = null; resolve({ success: false, error: err.message }); });
+      pmaServer.on('close', () => { pmaServer = null; });
+      setTimeout(() => {
+        if (pmaServer && !pmaServer.killed) resolve({ success: true, port });
+        else resolve({ success: false, error: 'PHP server exited unexpectedly.' });
+      }, 600);
+    } catch (err) {
+      resolve({ success: false, error: err.message });
+    }
+  });
+}
+
+function stopPhpMyAdmin() {
+  if (pmaServer) { try { pmaServer.kill(); } catch {} pmaServer = null; }
+  return { success: true };
+}
+
+// ─── IPC Sender Validation ────────────────────────────────────────────────────
+function isValidSender(event) {
+  const url = event.senderFrame?.url || '';
+  return url.startsWith('file://');
 }
 
 // ─── Recursive directory reader ──────────────────────────────────────────────
@@ -608,7 +994,8 @@ ipcMain.handle("read-file", (_e, filePath) => {
   }
 });
 
-ipcMain.handle("write-file", (_e, { filePath, content }) => {
+ipcMain.handle("write-file", (event, { filePath, content }) => {
+  if (!isValidSender(event)) return { success: false, error: 'Unauthorized sender.' };
   try {
     fs.writeFileSync(filePath, content, "utf-8");
     return { success: true };
@@ -617,7 +1004,8 @@ ipcMain.handle("write-file", (_e, { filePath, content }) => {
   }
 });
 
-ipcMain.handle("create-file", (_e, { filePath, content }) => {
+ipcMain.handle("create-file", (event, { filePath, content }) => {
+  if (!isValidSender(event)) return { success: false, error: 'Unauthorized sender.' };
   try {
     fs.writeFileSync(filePath, content || "", "utf-8");
     return { success: true };
@@ -635,7 +1023,8 @@ ipcMain.handle("create-folder", (_e, folderPath) => {
   }
 });
 
-ipcMain.handle("delete-path", (_e, targetPath) => {
+ipcMain.handle("delete-path", (event, targetPath) => {
+  if (!isValidSender(event)) return { success: false, error: 'Unauthorized sender.' };
   try {
     const stat = fs.statSync(targetPath);
     if (stat.isDirectory()) fs.rmSync(targetPath, { recursive: true });
@@ -646,7 +1035,8 @@ ipcMain.handle("delete-path", (_e, targetPath) => {
   }
 });
 
-ipcMain.handle("rename-path", (_e, { oldPath, newPath }) => {
+ipcMain.handle("rename-path", (event, { oldPath, newPath }) => {
+  if (!isValidSender(event)) return { success: false, error: 'Unauthorized sender.' };
   try {
     fs.renameSync(oldPath, newPath);
     return { success: true };
@@ -673,6 +1063,10 @@ ipcMain.handle("duplicate-path", (_e, srcPath) => {
 
 // Server
 ipcMain.handle("start-server", async (_e, projectPath) => {
+  const cfg = serverCfg.getServerConfig();
+  if (cfg.serverType === 'php' && cfg.phpBinary) {
+    return startPhpServer(projectPath, cfg);
+  }
   try {
     const port = await startLocalServer(projectPath);
     return { success: true, port };
@@ -683,7 +1077,106 @@ ipcMain.handle("start-server", async (_e, projectPath) => {
 
 ipcMain.handle("stop-server", () => {
   if (localServer) { localServer.close(); localServer = null; }
+  if (phpServer)   { try { phpServer.kill(); } catch {} phpServer = null; }
   return { success: true };
+});
+
+// ─── Server Config ────────────────────────────────────────────────────────────
+ipcMain.handle("get-server-config", () => serverCfg.getServerConfig());
+
+ipcMain.handle("save-server-config", (_e, patch) => {
+  serverCfg.saveServerConfig(patch);
+  return { success: true };
+});
+
+// ─── PHP ──────────────────────────────────────────────────────────────────────
+ipcMain.handle("php-detect", async () => {
+  try {
+    const binaries = await detectPhpBinaries();
+    return { success: true, binaries };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle("php-check-extensions", async (_e, phpBinary) => {
+  return checkPhpExtensions(phpBinary);
+});
+
+ipcMain.handle("php-configure-extensions", async (_e, { phpBinary, extensions }) => {
+  return configurePhpExtensions(phpBinary, extensions);
+});
+
+ipcMain.handle("php-start-server", async (_e, { projectPath }) => {
+  const cfg = serverCfg.getServerConfig();
+  return startPhpServer(projectPath, cfg);
+});
+
+ipcMain.handle("php-stop-server", () => {
+  if (phpServer) { try { phpServer.kill(); } catch {} phpServer = null; }
+  return { success: true };
+});
+
+// ─── MySQL ────────────────────────────────────────────────────────────────────
+ipcMain.handle("mysql-detect", async () => {
+  const status = await detectMysql();
+  const hasXampp = !!detectXamppMysql();
+  return { success: true, running: status.running, hasXampp };
+});
+
+ipcMain.handle("mysql-start", async () => mysqlStart());
+
+ipcMain.handle("mysql-stop",  async () => mysqlStop());
+
+ipcMain.handle("get-mysql-config", () => serverCfg.getMysqlConfig());
+
+ipcMain.handle("save-mysql-config", (_e, patch) => {
+  serverCfg.saveMysqlConfig(patch);
+  return { success: true };
+});
+
+// ─── phpMyAdmin ───────────────────────────────────────────────────────────────
+ipcMain.handle("phpmyadmin-status", () => ({
+  installed: phpMyAdminInstalled(),
+  running:   !!pmaServer,
+}));
+
+ipcMain.handle("phpmyadmin-download", async () => {
+  try {
+    await downloadPhpMyAdmin();
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle("phpmyadmin-start", async () => {
+  const cfg = serverCfg.getServerConfig();
+  return startPhpMyAdmin(cfg);
+});
+
+ipcMain.handle("phpmyadmin-stop", () => stopPhpMyAdmin());
+
+// ─── Guarded shell.openExternal ───────────────────────────────────────────────
+const EXTERNAL_ALLOWLIST = [
+  /^https:\/\/windows\.php\.net\//,
+  /^https:\/\/buy\.polar\.sh\//,
+  /^https:\/\/polar\.sh\//,
+  /^https:\/\/phpmyadmin\.net\//,
+  /^https:\/\/files\.phpmyadmin\.net\//,
+  /^https:\/\/github\.com\/anthropics\//,
+];
+
+ipcMain.handle("open-external", (_e, url) => {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:') return { success: false, error: 'Only HTTPS URLs allowed.' };
+    if (!EXTERNAL_ALLOWLIST.some(re => re.test(url))) return { success: false, error: 'URL not in allowlist.' };
+    shell.openExternal(url);
+    return { success: true };
+  } catch {
+    return { success: false, error: 'Invalid URL.' };
+  }
 });
 
 // Editor window
@@ -740,7 +1233,8 @@ ipcMain.handle("unwatch-project", () => {
 });
 
 // ─── Terminal ────────────────────────────────────────────────────────────────
-ipcMain.handle("terminal-run", (_e, { command, cwd }) => {
+ipcMain.handle("terminal-run", (event, { command, cwd }) => {
+  if (!isValidSender(event)) return { success: false, error: 'Unauthorized sender.' };
   // Kill any existing process
   if (terminalProcess) {
     try { terminalProcess.kill(); } catch {}
@@ -987,6 +1481,35 @@ ipcMain.handle("choose-zip-save-path", async (_e, defaultName) => {
   return result.canceled ? null : result.filePath;
 });
 
+// Compress a specific list of paths into a ZIP (multi-select export)
+ipcMain.handle("compress-paths", async (_e, { paths, outputPath }) => {
+  if (!paths || !paths.length || !outputPath) return { success: false, error: 'Missing parameters.' };
+  try {
+    const isWin = process.platform === 'win32';
+    if (isWin) {
+      // Build a PowerShell array literal of quoted paths
+      const pathList = paths.map(p => `"${p.replace(/"/g, '`"')}"`).join(',');
+      await new Promise((resolve, reject) => {
+        const ps = spawn('powershell', [
+          '-NoProfile', '-NonInteractive', '-Command',
+          `Compress-Archive -Force -Path @(${pathList}) -DestinationPath "${outputPath}"`,
+        ], { windowsHide: true });
+        ps.on('close', code => code === 0 ? resolve() : reject(new Error(`PowerShell exited ${code}`)));
+        ps.on('error', reject);
+      });
+    } else {
+      await new Promise((resolve, reject) => {
+        const proc = spawn('zip', ['-r', outputPath, ...paths], { windowsHide: true });
+        proc.on('close', code => code === 0 ? resolve() : reject(new Error(`zip exited ${code}`)));
+        proc.on('error', reject);
+      });
+    }
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
 ipcMain.handle("export-to-zip", async (_e, { projectPath, outputPath }) => {
   if (!license.isPro()) return { success: false, error: 'Pro license required.' };
 
@@ -1021,18 +1544,84 @@ ipcMain.handle("export-to-zip", async (_e, { projectPath, outputPath }) => {
   }
 });
 
+// ─── Shell helpers ────────────────────────────────────────────────────────────
+ipcMain.handle("reveal-in-explorer", (_e, targetPath) => {
+  shell.showItemInFolder(targetPath);
+  return { success: true };
+});
+
+ipcMain.handle("open-in-terminal", (_e, targetPath) => {
+  try {
+    const dir = fs.statSync(targetPath).isDirectory() ? targetPath : path.dirname(targetPath);
+    if (process.platform === 'win32') {
+      spawn('cmd.exe', ['/c', 'start', 'cmd.exe'], { cwd: dir, detached: true, stdio: 'ignore' }).unref();
+    } else if (process.platform === 'darwin') {
+      spawn('open', ['-a', 'Terminal', dir], { detached: true, stdio: 'ignore' }).unref();
+    } else {
+      spawn('x-terminal-emulator', [], { cwd: dir, detached: true, stdio: 'ignore' }).unref();
+    }
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
 // ─── App lifecycle ────────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
   Menu.setApplicationMenu(null);
-  await license.validateStoredLicense(); // revoke fake/expired keys before window opens
+  await license.validateStoredLicense();
   await loadSavedExtensions();
   setupAutoUpdater();
   createWindow();
+
+  // ── Security: restrict navigation + permission requests ───────────────────
+  // Fires for every new WebContents (BrowserWindows, <webview> tags, etc.)
+  app.on('web-contents-created', (_event, contents) => {
+    // Only restrict BrowserWindow navigation — webviews are intentionally a free browser
+    if (contents.getType() === 'window') {
+      contents.on('will-navigate', (navEvent, navUrl) => {
+        try {
+          const { protocol, hostname } = new URL(navUrl);
+          // Allow file:// (app HTML) and localhost HTTP (dev server)
+          if (protocol === 'http:' || protocol === 'https:') {
+            if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+              navEvent.preventDefault();
+            }
+          }
+        } catch { navEvent.preventDefault(); }
+      });
+
+      // Deny new window creation from BrowserWindows; open allowed URLs externally
+      contents.setWindowOpenHandler(({ url }) => {
+        try {
+          const { protocol } = new URL(url);
+          if (protocol === 'https:') shell.openExternal(url);
+        } catch {}
+        return { action: 'deny' };
+      });
+    }
+
+    // Deny camera / mic / geolocation / notifications for all web contents
+    contents.session.setPermissionRequestHandler((_wc, permission, callback) => {
+      const DENIED = new Set(['media', 'geolocation', 'notifications', 'midi', 'pointerLock', 'openExternal']);
+      callback(!DENIED.has(permission));
+    });
+  });
+
+  // ── Security: strip dangerous options from <webview> tags ─────────────────
+  app.on('will-attach-webview', (_event, webPreferences) => {
+    delete webPreferences.preload;
+    delete webPreferences.preloadURL;
+    webPreferences.nodeIntegration  = false;
+    webPreferences.contextIsolation = true;
+  });
 });
 
 app.on("window-all-closed", () => {
-  if (localServer) localServer.close();
-  if (fileWatcher) { try { fileWatcher.close(); } catch {} }
+  if (localServer)     localServer.close();
+  if (phpServer)       { try { phpServer.kill();   } catch {} phpServer = null; }
+  if (pmaServer)       { try { pmaServer.kill();   } catch {} pmaServer = null; }
+  if (fileWatcher)     { try { fileWatcher.close(); } catch {} }
   if (terminalProcess) { try { terminalProcess.kill(); } catch {} }
   if (process.platform !== "darwin") app.quit();
 });

@@ -119,13 +119,17 @@ function saveProSettings(settings) {
 }
 
 // ── AI completion proxy ───────────────────────────────────────────────────────
-// Sends a request to OpenAI or Anthropic, proxied through main so the renderer
-// CSP doesn't block the external fetch.
-async function aiComplete({ provider, apiKey, prompt, context }) {
+// Sends a request to OpenAI, Anthropic, or Google Gemini, proxied through main
+// so the renderer CSP doesn't block the external fetch.
+async function aiComplete({ provider, model, apiKey, prompt, context }) {
   if (!apiKey) return { success: false, error: 'No API key set.' };
+
+  const SYSTEM = 'You are a code completion assistant. Return ONLY the code completion, no explanation or markdown.';
+  const USER   = `Complete this code:\n\nContext:\n${context}\n\nComplete from:\n${prompt}`;
 
   try {
     if (provider === 'anthropic') {
+      const resolvedModel = model || 'claude-haiku-4-5-20251001';
       const res = await fetch('https://api.anthropic.com/v1/messages', {
         method:  'POST',
         headers: {
@@ -134,17 +138,37 @@ async function aiComplete({ provider, apiKey, prompt, context }) {
           'anthropic-version': '2023-06-01',
         },
         body: JSON.stringify({
-          model:      'claude-haiku-4-5-20251001',
+          model:      resolvedModel,
           max_tokens: 200,
-          messages:   [{ role: 'user', content: `Complete this code snippet. Return ONLY the completion, no explanation:\n\nContext:\n${context}\n\nCursor position:\n${prompt}` }],
+          system:     SYSTEM,
+          messages:   [{ role: 'user', content: USER }],
         }),
       });
       const data = await res.json();
       if (data.content?.[0]?.text) return { success: true, text: data.content[0].text };
       return { success: false, error: data.error?.message || 'AI request failed.' };
 
+    } else if (provider === 'gemini') {
+      const resolvedModel = model || 'gemini-2.0-flash';
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${resolvedModel}:generateContent?key=${apiKey}`,
+        {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: `${SYSTEM}\n\n${USER}` }] }],
+            generationConfig: { maxOutputTokens: 200 },
+          }),
+        }
+      );
+      const data = await res.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) return { success: true, text };
+      return { success: false, error: data.error?.message || 'AI request failed.' };
+
     } else {
       // OpenAI (default)
+      const resolvedModel = model || 'gpt-4o-mini';
       const res = await fetch('https://api.openai.com/v1/chat/completions', {
         method:  'POST',
         headers: {
@@ -152,11 +176,11 @@ async function aiComplete({ provider, apiKey, prompt, context }) {
           'Authorization': `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model:      'gpt-4o-mini',
+          model:      resolvedModel,
           max_tokens: 200,
           messages:   [
-            { role: 'system', content: 'You are a code completion assistant. Return ONLY the code completion, no explanation or markdown.' },
-            { role: 'user',   content: `Complete this code:\n\nContext:\n${context}\n\nComplete from:\n${prompt}` },
+            { role: 'system', content: SYSTEM },
+            { role: 'user',   content: USER   },
           ],
         }),
       });

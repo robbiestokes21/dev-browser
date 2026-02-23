@@ -714,7 +714,7 @@ webview {
 }
 webview.active-wv { display: block; }
 
-/* Responsive preview modes */
+/* Responsive preview modes (legacy) */
 #webview-scroll.resp-tablet,
 #webview-scroll.resp-mobile { background: var(--bg0); }
 
@@ -727,6 +727,23 @@ webview.active-wv { display: block; }
   width: 375px;
   left: 50%;
   transform: translateX(-50%);
+}
+
+/* Chrome DevTools-style device mode */
+#webview-scroll.resp-device {
+  background: var(--bg0);
+  overflow: auto;
+}
+#webview-scroll.resp-device webview.active-wv {
+  width:  var(--resp-w, 375px);
+  height: var(--resp-h, 667px);
+  inset:  unset;
+  position: absolute;
+  left: 50%;
+  top: 12px;
+  transform: translateX(-50%);
+  box-shadow: 0 0 0 1px var(--border2), 0 4px 24px rgba(0,0,0,0.35);
+  border-radius: 4px;
 }
 
 /* ── Drag-to-open highlight ──────────────────────────────────── */
@@ -1748,3 +1765,253 @@ webview.active-wv { display: block; }
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.6; }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   MENU BAR (VS Code style)
+════════════════════════════════════════════════════════════════ */
+#menubar {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  -webkit-app-region: no-drag;
+}
+
+.menu-item {
+  position: relative;
+}
+
+.menu-btn {
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 12px;
+  padding: 4px 9px;
+  height: 28px;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.1s, color 0.1s;
+}
+.menu-btn:hover,
+.menu-item.open .menu-btn {
+  background: var(--bg2);
+  color: var(--text-hi);
+}
+
+.menu-dropdown {
+  display: none;
+  position: fixed;
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 5px;
+  padding: 4px 0;
+  min-width: 220px;
+  z-index: 8000;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.55);
+}
+.menu-item.open .menu-dropdown { display: block; }
+
+.menu-dd-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--text);
+  padding: 6px 14px;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.08s;
+}
+.menu-dd-item:hover { background: rgba(255,255,255,0.07); color: var(--text-hi); }
+.menu-dd-item:disabled { color: var(--text-dim); cursor: default; }
+.menu-dd-item:disabled:hover { background: none; }
+
+.menu-shortcut {
+  color: var(--text-dim);
+  font-size: 11px;
+  margin-left: 24px;
+}
+
+.menu-dd-sep {
+  height: 1px;
+  background: var(--border2);
+  margin: 3px 0;
+}
+
+/* Backdrop to close menus on outside click */
+#menubar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 7999;
+}
+#menubar-backdrop.open { display: block; }
+
+/* ── Context menu — shortcut labels and new item types ──── */
+.ctx-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.ctx-shortcut {
+  color: var(--text-dim);
+  font-size: 11px;
+  margin-left: 20px;
+}
+
+/* ── Browser pane close/show button ─────────────────────── */
+.browser-tab-sep {
+  margin: 0 4px;
+}
+
+#btn-show-browser {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%) translateX(50%);
+  width: 20px;
+  height: 40px;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: 0 4px 4px 0;
+  color: var(--text-dim);
+  font-size: 11px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 20;
+  writing-mode: vertical-rl;
+  transition: background 0.1s, color 0.1s;
+}
+#btn-show-browser:hover { background: var(--accent); color: #fff; }
+
+/* When browser pane is hidden, editor pane gets a relative position for the show button */
+#editor-pane { position: relative; }
+
+/* ── Draggable browser tab state ────────────────────────── */
+.browser-tab.drag-over {
+  border-left: 2px solid var(--accent);
+  background: rgba(124,58,237,0.15);
+}
+
+/* ── Chrome DevTools device picker ─────────────────────── */
+.resp-device-select {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  font-size: 11px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  height: 22px;
+  max-width: 160px;
+  cursor: pointer;
+  outline: none;
+}
+.resp-device-select:focus { border-color: var(--accent); }
+
+.resp-dim-input {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  font-size: 11px;
+  width: 50px;
+  height: 22px;
+  padding: 0 4px;
+  border-radius: 3px;
+  text-align: center;
+  outline: none;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.resp-dim-input:focus { border-color: var(--accent); }
+.resp-dim-input::-webkit-inner-spin-button,
+.resp-dim-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+.resp-dim-input:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.resp-dim-x {
+  color: var(--text-dim);
+  font-size: 11px;
+  padding: 0 2px;
+  flex-shrink: 0;
+}
+
+/* ── Multi-select tree items ────────────────────────────── */
+.tree-item.multi-selected {
+  background: rgba(124,58,237,0.18);
+  border-radius: 3px;
+}
+.tree-item.multi-selected .tree-name { color: #c4b5fd; }
+
+/* ── Server & Backend Settings ──────────────────────────── */
+.server-subsection {
+  margin-bottom: 1.25rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.server-subsection-title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 0.6rem;
+}
+.radio-item { cursor: pointer; gap: 0.75rem; }
+.radio-item input[type=radio] { accent-color: var(--accent); flex-shrink: 0; }
+
+.status-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.status-dot-on  { background: #22c55e; box-shadow: 0 0 6px #22c55e88; }
+.status-dot-off { background: #4b5563; }
+
+.php-detect-list { display: flex; flex-direction: column; gap: 0.35rem; }
+.php-detect-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.8rem;
+  background: rgba(255,255,255,0.03);
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+.php-detect-item code {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.77rem;
+  color: var(--text-dim);
+}
+.php-detect-item .php-ver { color: #86efac; font-size: 0.75rem; white-space: nowrap; }
+
+.progress-bar-track {
+  height: 5px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.progress-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.25s ease;
+}
+
+.pma-btn {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #f59e0b;
+  border-color: rgba(245,158,11,0.3);
+}
+.pma-btn:hover { background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.6); }

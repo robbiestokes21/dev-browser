@@ -17,6 +17,8 @@ require(['vs/editor/editor.main'], function () {
     bottomOpen:          true,
     cmdFocusIdx:         -1,
     editorHiddenByEmpty: false, // true when pane was hidden because all editor tabs closed
+    multiSelected:       new Set(), // Set of paths selected via Ctrl+click
+    lastClickedPath:     null,      // for Shift+click range selection
   };
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -283,8 +285,39 @@ require(['vs/editor/editor.main'], function () {
         row.style.paddingLeft = `${22 + depth * 14}px`;
         row.innerHTML = `<span class="tree-icon">${getIcon(item.name)}</span><span class="tree-name">${item.name}</span>`;
 
-        row.addEventListener('click', () => {
-          if (!isBinary(item.name)) openFileInTab(item.path);
+        row.addEventListener('click', e => {
+          const normPath = item.path.replace(/\\/g, '/');
+          if (e.ctrlKey || e.metaKey) {
+            // Ctrl+click: toggle in multi-select
+            if (state.multiSelected.has(normPath)) {
+              state.multiSelected.delete(normPath);
+            } else {
+              state.multiSelected.add(normPath);
+            }
+            state.lastClickedPath = normPath;
+            updateMultiSelectVisuals();
+          } else if (e.shiftKey && state.lastClickedPath) {
+            // Shift+click: range select all visible file rows between last and this
+            const allRows = [...document.querySelectorAll('#file-tree .tree-item.file')];
+            const pathOf  = el => el.dataset.path;
+            const idxLast = allRows.findIndex(el => pathOf(el) === state.lastClickedPath);
+            const idxThis = allRows.findIndex(el => pathOf(el) === normPath);
+            if (idxLast >= 0 && idxThis >= 0) {
+              const lo = Math.min(idxLast, idxThis);
+              const hi = Math.max(idxLast, idxThis);
+              for (let i = lo; i <= hi; i++) {
+                const p = pathOf(allRows[i]);
+                if (p) state.multiSelected.add(p);
+              }
+            }
+            updateMultiSelectVisuals();
+          } else {
+            // Normal click: clear multi-select, open file
+            state.multiSelected.clear();
+            state.lastClickedPath = normPath;
+            updateMultiSelectVisuals();
+            if (!isBinary(item.name)) openFileInTab(item.path);
+          }
         });
 
         if (!isBinary(item.name)) {
@@ -298,8 +331,15 @@ require(['vs/editor/editor.main'], function () {
 
         row.addEventListener('contextmenu', e => {
           e.preventDefault();
-          const parentPath = item.path.replace(/\\/g, '/').split('/').slice(0, -1).join('/');
-          ctxTarget = { type: 'file', path: item.path.replace(/\\/g, '/'), name: item.name, parentPath };
+          const normPath   = item.path.replace(/\\/g, '/');
+          const parentPath = normPath.split('/').slice(0, -1).join('/');
+          // If this item is already in multi-select, keep selection; otherwise reset to just this item
+          if (!state.multiSelected.has(normPath)) {
+            state.multiSelected.clear();
+            state.multiSelected.add(normPath);
+            updateMultiSelectVisuals();
+          }
+          ctxTarget = { type: 'file', path: normPath, name: item.name, parentPath };
           showContextMenu(e.clientX, e.clientY, 'file');
         });
 
@@ -311,6 +351,12 @@ require(['vs/editor/editor.main'], function () {
   function markActiveInTree(filePath) {
     document.querySelectorAll('#file-tree .tree-item.file').forEach(el => {
       el.classList.toggle('selected', el.dataset.path === filePath);
+    });
+  }
+
+  function updateMultiSelectVisuals() {
+    document.querySelectorAll('#file-tree .tree-item.file').forEach(el => {
+      el.classList.toggle('multi-selected', state.multiSelected.has(el.dataset.path));
     });
   }
 
@@ -551,12 +597,15 @@ require(['vs/editor/editor.main'], function () {
     }
   }
 
+  let browserDragId = null;
+
   function renderBrowserTabs() {
     browserTabsEl.innerHTML = '';
     for (const tab of browserState.tabs) {
       const el = document.createElement('div');
       el.className = 'browser-tab' + (tab.id === browserState.activeId ? ' active' : '');
       el.title = tab.url || '';
+      el.draggable = true;
       const label = tab.title && tab.title !== tab.url ? tab.title : (tab.url || 'New Tab');
       const display = label.length > 22 ? label.slice(0, 22) + '…' : label;
       el.innerHTML = `
@@ -565,6 +614,39 @@ require(['vs/editor/editor.main'], function () {
       `;
       el.addEventListener('click', () => switchBrowserTab(tab.id));
       el.querySelector('.browser-tab-close').addEventListener('click', ev => closeBrowserTab(tab.id, ev));
+
+      // ── Drag-to-reorder ──────────────────────────────────────────────────
+      el.addEventListener('dragstart', e => {
+        browserDragId = tab.id;
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/browser-tab-id', tab.id);
+        setTimeout(() => el.style.opacity = '0.4', 0);
+      });
+      el.addEventListener('dragend', () => {
+        el.style.opacity = '';
+        browserDragId = null;
+        renderBrowserTabs();
+      });
+      el.addEventListener('dragover', e => {
+        if (!browserDragId || browserDragId === tab.id) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        el.classList.add('drag-over');
+      });
+      el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
+      el.addEventListener('drop', e => {
+        e.preventDefault();
+        el.classList.remove('drag-over');
+        const srcId = e.dataTransfer.getData('text/browser-tab-id');
+        if (!srcId || srcId === tab.id) return;
+        const srcIdx  = browserState.tabs.findIndex(t => t.id === srcId);
+        const destIdx = browserState.tabs.findIndex(t => t.id === tab.id);
+        if (srcIdx < 0 || destIdx < 0) return;
+        const [moved] = browserState.tabs.splice(srcIdx, 1);
+        browserState.tabs.splice(destIdx, 0, moved);
+        renderBrowserTabs();
+      });
+
       browserTabsEl.appendChild(el);
     }
   }
@@ -588,23 +670,117 @@ require(['vs/editor/editor.main'], function () {
     createBrowserTab('about:blank');
   });
 
+  // ── Browser pane close / show ──────────────────────────────────────────────
+  const btnShowBrowser  = document.getElementById('btn-show-browser');
+  const browserPane     = document.getElementById('browser-pane');
+  const dividerBrowserEl = document.getElementById('divider-browser');
+
+  function setBrowserPaneVisible(visible) {
+    if (visible) {
+      browserPane.style.display      = '';
+      dividerBrowserEl.style.display = '';
+      btnShowBrowser.style.display   = 'none';
+    } else {
+      browserPane.style.display      = 'none';
+      dividerBrowserEl.style.display = 'none';
+      btnShowBrowser.style.display   = 'flex';
+    }
+  }
+
+  document.getElementById('btn-close-browser').addEventListener('click', () => setBrowserPaneVisible(false));
+  btnShowBrowser.addEventListener('click', () => setBrowserPaneVisible(true));
+
   // Initialise first browser tab immediately
   createBrowserTab('about:blank');
 
-  // ── Responsive Preview ────────────────────────────────────────────────────
-  function setResponsive(mode) {
+  // ── Responsive / Device Preview ──────────────────────────────────────────
+  const DEVICES = {
+    'responsive': null,
+    '375x667':   { w: 375,  h: 667  },
+    '390x844':   { w: 390,  h: 844  },
+    '430x932':   { w: 430,  h: 932  },
+    '412x915':   { w: 412,  h: 915  },
+    '360x800':   { w: 360,  h: 800  },
+    '768x1024':  { w: 768,  h: 1024 },
+    '820x1180':  { w: 820,  h: 1180 },
+    '1024x1366': { w: 1024, h: 1366 },
+    '912x1368':  { w: 912,  h: 1368 },
+    '1280x720':  { w: 1280, h: 720  },
+    '1440x900':  { w: 1440, h: 900  },
+    '1920x1080': { w: 1920, h: 1080 },
+  };
+
+  const respDeviceSelect = document.getElementById('resp-device-select');
+  const respWidthInput   = document.getElementById('resp-width');
+  const respHeightInput  = document.getElementById('resp-height');
+  const respRotateBtn    = document.getElementById('resp-rotate');
+
+  function applyDeviceDimensions(w, h) {
     webviewScroll.classList.remove('resp-desktop', 'resp-tablet', 'resp-mobile');
-    webviewScroll.classList.add('resp-' + mode);
-    document.getElementById('resp-desktop').classList.toggle('active', mode === 'desktop');
-    document.getElementById('resp-tablet').classList.toggle('active',  mode === 'tablet');
-    document.getElementById('resp-mobile').classList.toggle('active',  mode === 'mobile');
+    if (!w) {
+      // Responsive: no constraint
+      webviewScroll.classList.add('resp-desktop');
+      webviewScroll.style.removeProperty('--resp-w');
+      webviewScroll.style.removeProperty('--resp-h');
+      respWidthInput.disabled  = true;
+      respHeightInput.disabled = true;
+    } else {
+      webviewScroll.classList.add('resp-device');
+      webviewScroll.style.setProperty('--resp-w', w + 'px');
+      webviewScroll.style.setProperty('--resp-h', h + 'px');
+      respWidthInput.value     = w;
+      respHeightInput.value    = h;
+      respWidthInput.disabled  = false;
+      respHeightInput.disabled = false;
+    }
   }
 
-  setResponsive('desktop');
+  function setResponsive(mode) {
+    // Legacy compat: called from menu bar
+    if (mode === 'desktop')  { respDeviceSelect.value = 'responsive'; applyDeviceDimensions(null, null); }
+    else if (mode === 'tablet') { respDeviceSelect.value = '768x1024'; applyDeviceDimensions(768, 1024); }
+    else if (mode === 'mobile') { respDeviceSelect.value = '375x667';  applyDeviceDimensions(375, 667); }
+  }
 
-  document.getElementById('resp-desktop').addEventListener('click', () => setResponsive('desktop'));
-  document.getElementById('resp-tablet').addEventListener('click',  () => setResponsive('tablet'));
-  document.getElementById('resp-mobile').addEventListener('click',  () => setResponsive('mobile'));
+  respDeviceSelect.addEventListener('change', () => {
+    const key    = respDeviceSelect.value;
+    const device = DEVICES[key];
+    applyDeviceDimensions(device ? device.w : null, device ? device.h : null);
+  });
+
+  respWidthInput.addEventListener('change', () => {
+    const w = parseInt(respWidthInput.value, 10);
+    const h = parseInt(respHeightInput.value, 10);
+    if (w && h) {
+      webviewScroll.classList.add('resp-device');
+      webviewScroll.style.setProperty('--resp-w', w + 'px');
+      webviewScroll.style.setProperty('--resp-h', h + 'px');
+      respDeviceSelect.value = 'responsive';
+    }
+  });
+
+  respHeightInput.addEventListener('change', () => {
+    const w = parseInt(respWidthInput.value, 10);
+    const h = parseInt(respHeightInput.value, 10);
+    if (w && h) {
+      webviewScroll.classList.add('resp-device');
+      webviewScroll.style.setProperty('--resp-w', w + 'px');
+      webviewScroll.style.setProperty('--resp-h', h + 'px');
+      respDeviceSelect.value = 'responsive';
+    }
+  });
+
+  respRotateBtn.addEventListener('click', () => {
+    const w = parseInt(respWidthInput.value, 10);
+    const h = parseInt(respHeightInput.value, 10);
+    if (w && h) {
+      applyDeviceDimensions(h, w);
+      respDeviceSelect.value = 'responsive';
+    }
+  });
+
+  // Default: responsive (no constraint)
+  applyDeviceDimensions(null, null);
 
   // ── Auto-reload toggle ────────────────────────────────────────────────────
   const btnAutoReload = document.getElementById('btn-auto-reload');
@@ -663,13 +839,13 @@ require(['vs/editor/editor.main'], function () {
   const ctxMenu = document.getElementById('ctx-menu');
 
   function showContextMenu(x, y, targetType) {
-    // Show/hide folder-only items
-    const newFileBtn   = ctxMenu.querySelector('[data-action="new-file"]');
-    const newFolderBtn = ctxMenu.querySelector('[data-action="new-folder"]');
-    const duplicateBtn = ctxMenu.querySelector('[data-action="duplicate"]');
-    newFileBtn.style.display   = targetType === 'folder' ? '' : 'none';
-    newFolderBtn.style.display = targetType === 'folder' ? '' : 'none';
-    duplicateBtn.style.display = targetType === 'file'   ? '' : 'none';
+    // Show/hide based on target type
+    ctxMenu.querySelectorAll('.ctx-folder-only').forEach(el => {
+      el.style.display = targetType === 'folder' ? '' : 'none';
+    });
+    ctxMenu.querySelectorAll('.ctx-file-only').forEach(el => {
+      el.style.display = targetType === 'file' ? '' : 'none';
+    });
 
     ctxMenu.style.left = x + 'px';
     ctxMenu.style.top  = y + 'px';
@@ -713,7 +889,6 @@ require(['vs/editor/editor.main'], function () {
       const newPath = ctxTarget.parentPath + '/' + newName;
       const r = await window.DevBrowser.renamePath(ctxTarget.path, newPath);
       if (r.success) {
-        // Update open tab if it was this file
         const tab = state.tabs.find(t => t.filePath === ctxTarget.path);
         if (tab) {
           const model = state.models.get(ctxTarget.path);
@@ -733,11 +908,41 @@ require(['vs/editor/editor.main'], function () {
       if (r.success) await refreshFileTree();
 
     } else if (action === 'copy-path') {
-      await navigator.clipboard.writeText(ctxTarget.path);
+      await navigator.clipboard.writeText(ctxTarget.path.replace(/\//g, '\\'));
+
+    } else if (action === 'copy-relative-path') {
+      if (state.project) {
+        const rel = ctxTarget.path.replace(state.project.path + '/', '');
+        await navigator.clipboard.writeText(rel.replace(/\//g, '\\'));
+      }
+
+    } else if (action === 'reveal-explorer') {
+      await window.DevBrowser.revealInExplorer(ctxTarget.path.replace(/\//g, '\\'));
+
+    } else if (action === 'open-terminal') {
+      await window.DevBrowser.openInTerminal(ctxTarget.path.replace(/\//g, '\\'));
+
+    } else if (action === 'find-in-folder') {
+      openFind();
+
+    } else if (action === 'compress-zip') {
+      // Compress all selected paths (or just the right-clicked one if none selected)
+      const paths = state.multiSelected.size > 0
+        ? [...state.multiSelected].map(p => p.replace(/\//g, '\\'))
+        : [ctxTarget.path.replace(/\//g, '\\')];
+      const defaultName = state.multiSelected.size > 1 ? 'archive' : ctxTarget.name;
+      const outputPath  = await window.DevBrowser.chooseZipSavePath(defaultName);
+      if (!outputPath) { hideContextMenu(); return; }
+      const r = await window.DevBrowser.compressPaths(paths, outputPath);
+      if (r.success) {
+        const sb = document.getElementById('status-server');
+        const prev = sb.textContent;
+        sb.textContent = `✓ Compressed ${paths.length} item(s)`;
+        setTimeout(() => { sb.textContent = prev; }, 3000);
+      }
 
     } else if (action === 'delete') {
       if (!await showConfirmDialog(`Delete "${ctxTarget.name}"?`)) return;
-      // Close tab if open
       const tab = state.tabs.find(t => t.filePath === ctxTarget.path);
       if (tab) await closeTab(tab.id);
       await window.DevBrowser.deletePath(ctxTarget.path);
@@ -745,6 +950,14 @@ require(['vs/editor/editor.main'], function () {
     }
 
     hideContextMenu();
+  });
+
+  // F2 → rename focused tree item
+  document.addEventListener('keydown', e => {
+    if (e.key === 'F2' && ctxTarget) {
+      e.preventDefault();
+      ctxMenu.querySelector('[data-action="rename"]')?.click();
+    }
   });
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -1239,6 +1452,88 @@ require(['vs/editor/editor.main'], function () {
   });
 
   document.getElementById('btn-cmd-palette').addEventListener('click', openCmdPalette);
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // MENU BAR (VS Code style)
+  // ════════════════════════════════════════════════════════════════════════════
+  const menubarBackdrop = document.getElementById('menubar-backdrop');
+
+  function closeAllMenus() {
+    document.querySelectorAll('.menu-item.open').forEach(m => m.classList.remove('open'));
+    menubarBackdrop.classList.remove('open');
+  }
+
+  document.querySelectorAll('.menu-item').forEach(menuItem => {
+    const btn      = menuItem.querySelector('.menu-btn');
+    const dropdown = menuItem.querySelector('.menu-dropdown');
+
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const isOpen = menuItem.classList.contains('open');
+      closeAllMenus();
+      if (!isOpen) {
+        menuItem.classList.add('open');
+        menubarBackdrop.classList.add('open');
+        // Position dropdown below button
+        const rect = btn.getBoundingClientRect();
+        dropdown.style.top  = rect.bottom + 'px';
+        dropdown.style.left = rect.left   + 'px';
+      }
+    });
+
+    // Hover: switch menu when another is already open
+    btn.addEventListener('mouseenter', () => {
+      if (document.querySelector('.menu-item.open') && !menuItem.classList.contains('open')) {
+        closeAllMenus();
+        menuItem.classList.add('open');
+        menubarBackdrop.classList.add('open');
+        const rect = btn.getBoundingClientRect();
+        dropdown.style.top  = rect.bottom + 'px';
+        dropdown.style.left = rect.left   + 'px';
+      }
+    });
+  });
+
+  menubarBackdrop.addEventListener('click', closeAllMenus);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAllMenus(); });
+
+  // Menu command dispatcher
+  document.querySelectorAll('.menu-dd-item').forEach(item => {
+    item.addEventListener('click', () => {
+      closeAllMenus();
+      const cmd = item.dataset.cmd;
+      switch (cmd) {
+        case 'new-project':   document.getElementById('btn-new-project-toolbar').click(); break;
+        case 'open-project':  document.getElementById('btn-open-project-toolbar').click(); break;
+        case 'new-file':      document.getElementById('btn-new-file').click(); break;
+        case 'new-folder':    document.getElementById('btn-new-folder').click(); break;
+        case 'save':          saveActiveTab(); break;
+        case 'undo':          editor.trigger('menu', 'undo', null); break;
+        case 'redo':          editor.trigger('menu', 'redo', null); break;
+        case 'find-files':    openFind(); break;
+        case 'format':        editor.getAction('editor.action.formatDocument')?.run(); break;
+        case 'word-wrap': {
+          const w = editor.getOption(monaco.editor.EditorOption.wordWrap);
+          editor.updateOptions({ wordWrap: w === 'on' ? 'off' : 'on' });
+          break;
+        }
+        case 'toggle-sidebar': document.getElementById('btn-sidebar-toggle').click(); break;
+        case 'toggle-browser': setBrowserPaneVisible(browserPane.style.display === 'none'); break;
+        case 'toggle-bottom':  switchBottomTab('terminal'); break;
+        case 'resp-desktop':   setResponsive('desktop'); break;
+        case 'resp-tablet':    setResponsive('tablet'); break;
+        case 'resp-mobile':    setResponsive('mobile'); break;
+        case 'cmd-palette':    openCmdPalette(); break;
+        case 'open-terminal':  switchBottomTab('terminal'); break;
+        case 'clear-terminal': terminalOutput.innerHTML = ''; break;
+        case 'kill-terminal':  document.getElementById('btn-term-kill').click(); break;
+        case 'check-updates':  document.getElementById('btn-check-updates')?.click(); break;
+        case 'about':
+          showInputDialog(`DevBrowser v${window.DevBrowser.version || '0.0.4'} — Built with Electron + Monaco Editor — © 2026 dstokesncstudio`);
+          break;
+      }
+    });
+  });
 
   // ════════════════════════════════════════════════════════════════════════════
   // KEYBOARD SHORTCUTS
@@ -2067,6 +2362,7 @@ require(['vs/editor/editor.main'], function () {
 
         const r = await window.DevBrowser.aiComplete({
           provider: settings.aiProvider || 'openai',
+          model:    settings.aiModel    || null,
           apiKey:   settings.aiKey,
           context:  model.getValue().slice(0, 2000),
           prompt:   textBefore.slice(-500),
@@ -2252,23 +2548,352 @@ require(['vs/editor/editor.main'], function () {
     if (proSettings.aiEnabled && proSettings.aiKey) enableAiCompletion(proSettings);
     else disableAiCompletion();
   });
+  // ── AI model options per provider ───────────────────────────────────────────
+  const AI_MODELS = {
+    openai: [
+      { value: 'gpt-4o-mini',       label: 'GPT-4o mini (fast, cheap)' },
+      { value: 'gpt-4o',            label: 'GPT-4o (most capable)' },
+      { value: 'gpt-4-turbo',       label: 'GPT-4 Turbo' },
+      { value: 'o1-mini',           label: 'o1 mini (reasoning)' },
+    ],
+    anthropic: [
+      { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5 (fast, cheap)' },
+      { value: 'claude-sonnet-4-6',         label: 'Claude Sonnet 4.6 (balanced)' },
+      { value: 'claude-opus-4-6',           label: 'Claude Opus 4.6 (most capable)' },
+    ],
+    gemini: [
+      { value: 'gemini-2.0-flash',         label: 'Gemini 2.0 Flash (fast)' },
+      { value: 'gemini-2.0-flash-thinking', label: 'Gemini 2.0 Flash Thinking' },
+      { value: 'gemini-1.5-pro',           label: 'Gemini 1.5 Pro' },
+    ],
+  };
+
+  function populateModelSelect(provider, selectedModel) {
+    const modelSelect = document.getElementById('pro-ai-model');
+    const models = AI_MODELS[provider] || AI_MODELS.openai;
+    modelSelect.innerHTML = '';
+    for (const m of models) {
+      const opt = document.createElement('option');
+      opt.value = m.value;
+      opt.textContent = m.label;
+      modelSelect.appendChild(opt);
+    }
+    if (selectedModel && models.find(m => m.value === selectedModel)) {
+      modelSelect.value = selectedModel;
+    } else {
+      modelSelect.value = models[0].value;
+    }
+  }
+
   document.getElementById('pro-ai-provider').addEventListener('change', e => {
     proSettings.aiProvider = e.target.value;
-    window.DevBrowser.saveProSettings({ aiProvider: e.target.value });
+    populateModelSelect(e.target.value, null);
+    proSettings.aiModel = document.getElementById('pro-ai-model').value;
+    window.DevBrowser.saveProSettings({ aiProvider: e.target.value, aiModel: proSettings.aiModel });
     if (proSettings.aiEnabled && proSettings.aiKey) enableAiCompletion(proSettings);
   });
 
-  // Populate Pro settings fields when Settings modal opens
+  document.getElementById('pro-ai-model').addEventListener('change', e => {
+    proSettings.aiModel = e.target.value;
+    window.DevBrowser.saveProSettings({ aiModel: e.target.value });
+    if (proSettings.aiEnabled && proSettings.aiKey) enableAiCompletion(proSettings);
+  });
+
+  // Populate settings fields when Settings modal opens
   document.getElementById('btn-extensions').addEventListener('click', () => {
+    // Always refresh server/backend section (not Pro-gated)
+    refreshPhpDetection();
+    refreshMysqlStatus();
+    refreshPhpMyAdminStatus();
+
     if (!state.isPro) return;
+    const provider = proSettings.aiProvider || 'openai';
     document.getElementById('pro-ai-enabled').checked = !!proSettings.aiEnabled;
-    document.getElementById('pro-ai-key').value       = proSettings.aiKey     || '';
-    document.getElementById('pro-ai-provider').value  = proSettings.aiProvider || 'openai';
+    document.getElementById('pro-ai-key').value       = proSettings.aiKey || '';
+    document.getElementById('pro-ai-provider').value  = provider;
+    populateModelSelect(provider, proSettings.aiModel);
     document.getElementById('pro-accent-color').value = proSettings.accentColor || '#7c3aed';
     document.getElementById('pro-bg-color').value     = proSettings.bgColor    || '#0d0d14';
     document.getElementById('pro-editor-font').value  = proSettings.editorFont || 'Consolas, "Courier New", monospace';
     renderShortcutsList();
   });
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // SERVER & BACKEND (ALL USERS)
+  // ════════════════════════════════════════════════════════════════════════════
+
+  let serverConfig = {};
+  let mysqlConfig  = {};
+  let backendInited = false;
+
+  async function initServerBackend() {
+    serverConfig = await window.DevBrowser.getServerConfig();
+    mysqlConfig  = await window.DevBrowser.getMysqlConfig();
+
+    // Port
+    const portInput = document.getElementById('server-port');
+    if (portInput) portInput.value = serverConfig.port || 7777;
+
+    // Backend engine radios
+    const staticRadio = document.getElementById('server-type-static');
+    const phpRadio    = document.getElementById('server-type-php');
+    if (serverConfig.serverType === 'php') phpRadio.checked = true;
+    else staticRadio.checked = true;
+
+    // PHP binary path
+    if (serverConfig.phpBinary) {
+      document.getElementById('php-binary-path').value = serverConfig.phpBinary;
+    }
+
+    // MySQL fields
+    document.getElementById('mysql-host').value     = mysqlConfig.host     || '127.0.0.1';
+    document.getElementById('mysql-port').value     = mysqlConfig.port     || 3306;
+    document.getElementById('mysql-user').value     = mysqlConfig.user     || 'root';
+    document.getElementById('mysql-password').value = mysqlConfig.password || '';
+
+    if (backendInited) return;
+    backendInited = true;
+
+    // Save port
+    document.getElementById('btn-save-server-port').addEventListener('click', async () => {
+      const val  = parseInt(document.getElementById('server-port').value, 10);
+      const note = document.getElementById('server-port-note');
+      if (val < 1024 || val > 65535 || isNaN(val)) {
+        note.textContent = 'Port must be 1024–65535.';
+        return;
+      }
+      await window.DevBrowser.saveServerConfig({ port: val });
+      serverConfig.port = val;
+      note.textContent = `Saved. Takes effect when next project is opened.`;
+    });
+
+    // Backend engine radios
+    document.querySelectorAll('input[name="server-type"]').forEach(r => {
+      r.addEventListener('change', async () => {
+        const type = document.querySelector('input[name="server-type"]:checked').value;
+        await window.DevBrowser.saveServerConfig({ serverType: type });
+        serverConfig.serverType = type;
+      });
+    });
+
+    // PHP re-scan
+    document.getElementById('btn-php-detect').addEventListener('click', refreshPhpDetection);
+
+    // PHP download (opens in system browser via allowlisted openExternal)
+    document.getElementById('btn-php-download').addEventListener('click', () => {
+      window.DevBrowser.openExternal('https://windows.php.net/download/');
+    });
+
+    // Apply PHP extensions
+    document.getElementById('btn-php-save-exts').addEventListener('click', async () => {
+      const bin  = document.getElementById('php-binary-path').value.trim() || null;
+      const exts = {
+        pdo_mysql: document.getElementById('php-ext-pdo-mysql').checked,
+        mysqli:    document.getElementById('php-ext-mysqli').checked,
+      };
+      const note = document.getElementById('php-ext-note');
+      note.textContent = 'Applying…';
+      const r = await window.DevBrowser.phpConfigureExtensions(bin, exts);
+      note.textContent = r.success
+        ? `Done. Saved to ${r.iniPath}. Restart PHP server to apply.`
+        : `Error: ${r.error}`;
+    });
+
+    // MySQL start / stop
+    document.getElementById('btn-mysql-start').addEventListener('click', async () => {
+      document.getElementById('mysql-note').textContent = 'Starting MySQL…';
+      const r = await window.DevBrowser.mysqlStart();
+      document.getElementById('mysql-note').textContent = r.success ? 'MySQL started.' : `Error: ${r.error || 'Could not start MySQL.'}`;
+      setTimeout(refreshMysqlStatus, 2000);
+    });
+    document.getElementById('btn-mysql-stop').addEventListener('click', async () => {
+      document.getElementById('mysql-note').textContent = 'Stopping MySQL…';
+      const r = await window.DevBrowser.mysqlStop();
+      document.getElementById('mysql-note').textContent = r.success ? 'MySQL stopped.' : `Error: ${r.error || 'Could not stop MySQL.'}`;
+      setTimeout(refreshMysqlStatus, 1500);
+    });
+
+    // Save MySQL config
+    document.getElementById('btn-save-mysql-config').addEventListener('click', async () => {
+      const patch = {
+        host:     document.getElementById('mysql-host').value.trim(),
+        port:     parseInt(document.getElementById('mysql-port').value, 10) || 3306,
+        user:     document.getElementById('mysql-user').value.trim(),
+        password: document.getElementById('mysql-password').value,
+      };
+      await window.DevBrowser.saveMysqlConfig(patch);
+      Object.assign(mysqlConfig, patch);
+      document.getElementById('mysql-note').textContent = 'MySQL config saved.';
+    });
+
+    // phpMyAdmin buttons
+    document.getElementById('btn-pma-download').addEventListener('click', startPhpMyAdminDownload);
+    document.getElementById('btn-pma-start').addEventListener('click', async () => {
+      const r = await window.DevBrowser.phpMyAdminStart();
+      if (r.success) {
+        document.getElementById('pma-status-text').textContent = `Running on http://localhost:${r.port}`;
+        document.getElementById('pma-status-dot').className = 'status-dot status-dot-on';
+        document.getElementById('btn-pma-start').classList.add('hidden');
+        document.getElementById('btn-pma-stop').classList.remove('hidden');
+        document.getElementById('btn-pma-open').classList.remove('hidden');
+      } else {
+        document.getElementById('pma-status-text').textContent = `Error: ${r.error}`;
+      }
+    });
+    document.getElementById('btn-pma-stop').addEventListener('click', async () => {
+      await window.DevBrowser.phpMyAdminStop();
+      refreshPhpMyAdminStatus();
+    });
+    document.getElementById('btn-pma-open').addEventListener('click', () => {
+      const port = serverConfig.phpMyAdminPort || 7799;
+      const url  = `http://localhost:${port}`;
+      getWebview()?.loadURL(url);
+      document.getElementById('url').value = url;
+      document.getElementById('ext-overlay').classList.add('hidden');
+    });
+
+    // phpMyAdmin nav bar quick-launch
+    document.getElementById('btn-phpmyadmin').addEventListener('click', async () => {
+      const status = await window.DevBrowser.phpMyAdminStatus();
+      const cfg    = await window.DevBrowser.getServerConfig();
+      if (!status.running) {
+        const r = await window.DevBrowser.phpMyAdminStart();
+        if (!r.success) {
+          // Show settings if not installed yet
+          if (!status.installed) document.getElementById('btn-extensions').click();
+          return;
+        }
+      }
+      const url = `http://localhost:${cfg.phpMyAdminPort || 7799}`;
+      getWebview()?.loadURL(url);
+      document.getElementById('url').value = url;
+    });
+
+    // phpMyAdmin download progress
+    window.DevBrowser.onPhpMyAdminProgress(({ percent, status }) => {
+      const wrap  = document.getElementById('pma-progress-wrap');
+      const bar   = document.getElementById('pma-progress-bar');
+      const label = document.getElementById('pma-progress-label');
+      wrap.classList.remove('hidden');
+      bar.style.width = `${percent}%`;
+      if (status === 'downloading') label.textContent = `Downloading… ${percent}%`;
+      else if (status === 'extracting') label.textContent = 'Extracting…';
+      else if (status === 'done') {
+        label.textContent = 'Done!';
+        setTimeout(() => {
+          wrap.classList.add('hidden');
+          refreshPhpMyAdminStatus();
+        }, 1800);
+      }
+    });
+  }
+
+  async function refreshPhpDetection() {
+    const list = document.getElementById('php-detect-list');
+    list.innerHTML = '<span class="ext-note">Scanning…</span>';
+    const r = await window.DevBrowser.phpDetect();
+    if (!r.success || !r.binaries || !r.binaries.length) {
+      list.innerHTML = '<span class="ext-note">No PHP found. Install XAMPP, WAMP, Laragon, or download PHP for Windows.</span>';
+      return;
+    }
+    list.innerHTML = '';
+    for (const { path: binPath, version } of r.binaries) {
+      const row = document.createElement('div');
+      row.className = 'php-detect-item';
+      const code = document.createElement('code');
+      code.title = binPath;
+      code.textContent = binPath;
+      const ver = document.createElement('span');
+      ver.className = 'php-ver';
+      ver.textContent = `v${version}`;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn-secondary';
+      btn.style.cssText = 'font-size:0.72rem;padding:2px 8px;flex-shrink:0';
+      btn.textContent = 'Select';
+      btn.addEventListener('click', async () => {
+        document.getElementById('php-binary-path').value = binPath;
+        await window.DevBrowser.saveServerConfig({ phpBinary: binPath });
+        serverConfig.phpBinary = binPath;
+        document.getElementById('php-version-note').textContent = `PHP ${version} selected`;
+        // Load extension state for selected binary
+        const exts = await window.DevBrowser.phpCheckExtensions(binPath);
+        if (exts.success) {
+          document.getElementById('php-ext-pdo-mysql').checked = exts.pdo_mysql;
+          document.getElementById('php-ext-mysqli').checked    = exts.mysqli;
+        }
+      });
+      row.appendChild(code);
+      row.appendChild(ver);
+      row.appendChild(btn);
+      list.appendChild(row);
+    }
+  }
+
+  async function refreshMysqlStatus() {
+    const r = await window.DevBrowser.mysqlDetect();
+    const dot      = document.getElementById('mysql-status-dot');
+    const text     = document.getElementById('mysql-status-text');
+    const startBtn = document.getElementById('btn-mysql-start');
+    const stopBtn  = document.getElementById('btn-mysql-stop');
+    if (r.running) {
+      dot.className  = 'status-dot status-dot-on';
+      text.textContent = 'Running on localhost:3306';
+      startBtn.classList.add('hidden');
+      stopBtn.classList.remove('hidden');
+    } else {
+      dot.className  = 'status-dot status-dot-off';
+      text.textContent = 'Not running';
+      stopBtn.classList.add('hidden');
+      if (r.hasXampp) startBtn.classList.remove('hidden');
+      else startBtn.classList.add('hidden');
+    }
+  }
+
+  async function refreshPhpMyAdminStatus() {
+    const r   = await window.DevBrowser.phpMyAdminStatus();
+    const cfg = await window.DevBrowser.getServerConfig();
+    const dot    = document.getElementById('pma-status-dot');
+    const text   = document.getElementById('pma-status-text');
+    const dlBtn  = document.getElementById('btn-pma-download');
+    const startBtn = document.getElementById('btn-pma-start');
+    const stopBtn  = document.getElementById('btn-pma-stop');
+    const openBtn  = document.getElementById('btn-pma-open');
+    if (!r.installed) {
+      dot.className = 'status-dot status-dot-off';
+      text.textContent = 'Not installed';
+      dlBtn.classList.remove('hidden');
+      startBtn.classList.add('hidden');
+      stopBtn.classList.add('hidden');
+      openBtn.classList.add('hidden');
+    } else if (r.running) {
+      dot.className = 'status-dot status-dot-on';
+      text.textContent = `Running on http://localhost:${cfg.phpMyAdminPort || 7799}`;
+      dlBtn.classList.add('hidden');
+      startBtn.classList.add('hidden');
+      stopBtn.classList.remove('hidden');
+      openBtn.classList.remove('hidden');
+    } else {
+      dot.className = 'status-dot status-dot-off';
+      text.textContent = 'Installed, not running';
+      dlBtn.classList.add('hidden');
+      startBtn.classList.remove('hidden');
+      stopBtn.classList.add('hidden');
+      openBtn.classList.add('hidden');
+    }
+  }
+
+  async function startPhpMyAdminDownload() {
+    const btn = document.getElementById('btn-pma-download');
+    btn.disabled = true;
+    document.getElementById('pma-progress-wrap').classList.remove('hidden');
+    document.getElementById('pma-progress-label').textContent = 'Starting download…';
+    const r = await window.DevBrowser.phpMyAdminDownload();
+    btn.disabled = false;
+    if (!r.success) {
+      document.getElementById('pma-progress-label').textContent = `Error: ${r.error}`;
+    }
+  }
 
   // ── Startup init ────────────────────────────────────────────────────────────
   async function initPro() {
@@ -2286,5 +2911,6 @@ require(['vs/editor/editor.main'], function () {
   }
 
   initPro();
+  initServerBackend();
 
 });

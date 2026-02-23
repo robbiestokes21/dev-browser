@@ -90,4 +90,37 @@ contextBridge.exposeInMainWorld("DevBrowser", {
   // ── Export to ZIP (Pro) ───────────────────────────────────────────────────
   chooseZipSavePath: (name)                   => ipcRenderer.invoke("choose-zip-save-path", name),
   exportToZip:       (projectPath, outputPath) => ipcRenderer.invoke("export-to-zip", { projectPath, outputPath }),
+  compressPaths:     (paths, outputPath)       => ipcRenderer.invoke("compress-paths", { paths, outputPath }),
+
+  // ── Shell helpers ─────────────────────────────────────────────────────────
+  revealInExplorer: (targetPath) => ipcRenderer.invoke("reveal-in-explorer", targetPath),
+  openInTerminal:   (targetPath) => ipcRenderer.invoke("open-in-terminal", targetPath),
+  openExternal:     (url)        => ipcRenderer.invoke("open-external", url),
+
+  // ── Server Config (all users) ─────────────────────────────────────────────
+  getServerConfig:  ()      => ipcRenderer.invoke("get-server-config"),
+  saveServerConfig: (patch) => ipcRenderer.invoke("save-server-config", patch),
+
+  // ── PHP ───────────────────────────────────────────────────────────────────
+  phpDetect:              ()            => ipcRenderer.invoke("php-detect"),
+  phpCheckExtensions:     (bin)         => ipcRenderer.invoke("php-check-extensions", bin),
+  phpConfigureExtensions: (bin, exts)   => ipcRenderer.invoke("php-configure-extensions", { phpBinary: bin, extensions: exts }),
+  phpStartServer:         (projectPath) => ipcRenderer.invoke("php-start-server", { projectPath }),
+  phpStopServer:          ()            => ipcRenderer.invoke("php-stop-server"),
+  onPhpServerStopped:     (cb)          => ipcRenderer.on("php-server-stopped", (_e, data) => cb(data)),
+
+  // ── MySQL ─────────────────────────────────────────────────────────────────
+  mysqlDetect:     ()      => ipcRenderer.invoke("mysql-detect"),
+  mysqlStart:      ()      => ipcRenderer.invoke("mysql-start"),
+  mysqlStop:       ()      => ipcRenderer.invoke("mysql-stop"),
+  getMysqlConfig:  ()      => ipcRenderer.invoke("get-mysql-config"),
+  saveMysqlConfig: (patch) => ipcRenderer.invoke("save-mysql-config", patch),
+
+  // ── phpMyAdmin ────────────────────────────────────────────────────────────
+  phpMyAdminStatus:      ()   => ipcRenderer.invoke("phpmyadmin-status"),
+  phpMyAdminDownload:    ()   => ipcRenderer.invoke("phpmyadmin-download"),
+  phpMyAdminStart:       ()   => ipcRenderer.invoke("phpmyadmin-start"),
+  phpMyAdminStop:        ()   => ipcRenderer.invoke("phpmyadmin-stop"),
+  onPhpMyAdminProgress:  (cb) => ipcRenderer.on("phpmyadmin-progress", (_e, data) => cb(data)),
+  offPhpMyAdminProgress: ()   => ipcRenderer.removeAllListeners("phpmyadmin-progress"),
 });
