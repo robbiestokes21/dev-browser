@@ -16,7 +16,7 @@ const LICENSE_PATH      = path.join(app.getPath('userData'), 'pro-license.json')
 const PRO_SETTINGS_PATH = path.join(app.getPath('userData'), 'pro-settings.json');
 
 // ── Replace this with your real Polar organization ID ────────────────────────
-const POLAR_ORG_ID = process.env.POLAR_ORG_ID || 'f47fcf0a-7756-4c31-a3c6-685fa7bfc532';
+const POLAR_ORG_ID = process.env.POLAR_ORG_ID || '';
 // ─────────────────────────────────────────────────────────────────────────────
 
 function readLicense() {
