@@ -575,7 +575,7 @@ require(['vs/editor/editor.main'], function () {
   function switchBrowserTab(id) {
     browserState.activeId = id;
     browserState.webviews.forEach((wv, wvId) => {
-      wv.style.display = wvId === id ? 'block' : 'none';
+      wv.classList.toggle('active-wv', wvId === id);
     });
     const tab = browserState.tabs.find(t => t.id === id);
     if (tab) urlInput.value = tab.url || '';
@@ -715,16 +715,37 @@ require(['vs/editor/editor.main'], function () {
   const respHeightInput  = document.getElementById('resp-height');
   const respRotateBtn    = document.getElementById('resp-rotate');
 
+  let respDeviceSize = null; // { w, h } while a device preset is active
+
+  function updateDeviceScale() {
+    const zoomLabel = document.getElementById('resp-zoom-label');
+    if (!respDeviceSize) {
+      webviewScroll.style.removeProperty('--resp-scale');
+      zoomLabel.textContent = '';
+      return;
+    }
+    const pad    = 24; // breathing room around the framed preview
+    const availW = webviewScroll.clientWidth  - pad;
+    const availH = webviewScroll.clientHeight - pad;
+    const scale  = Math.max(Math.min(1, availW / respDeviceSize.w, availH / respDeviceSize.h), 0.05);
+    webviewScroll.style.setProperty('--resp-scale', String(scale));
+    zoomLabel.textContent = Math.round(scale * 100) + '%';
+  }
+
+  new ResizeObserver(updateDeviceScale).observe(webviewScroll);
+
   function applyDeviceDimensions(w, h) {
-    webviewScroll.classList.remove('resp-desktop', 'resp-tablet', 'resp-mobile');
+    webviewScroll.classList.remove('resp-desktop', 'resp-tablet', 'resp-mobile', 'resp-device');
     if (!w) {
       // Responsive: no constraint
+      respDeviceSize = null;
       webviewScroll.classList.add('resp-desktop');
       webviewScroll.style.removeProperty('--resp-w');
       webviewScroll.style.removeProperty('--resp-h');
       respWidthInput.disabled  = true;
       respHeightInput.disabled = true;
     } else {
+      respDeviceSize = { w, h };
       webviewScroll.classList.add('resp-device');
       webviewScroll.style.setProperty('--resp-w', w + 'px');
       webviewScroll.style.setProperty('--resp-h', h + 'px');
@@ -733,6 +754,7 @@ require(['vs/editor/editor.main'], function () {
       respWidthInput.disabled  = false;
       respHeightInput.disabled = false;
     }
+    updateDeviceScale();
   }
 
   function setResponsive(mode) {
@@ -748,27 +770,17 @@ require(['vs/editor/editor.main'], function () {
     applyDeviceDimensions(device ? device.w : null, device ? device.h : null);
   });
 
-  respWidthInput.addEventListener('change', () => {
+  function applyCustomDimensions() {
     const w = parseInt(respWidthInput.value, 10);
     const h = parseInt(respHeightInput.value, 10);
     if (w && h) {
-      webviewScroll.classList.add('resp-device');
-      webviewScroll.style.setProperty('--resp-w', w + 'px');
-      webviewScroll.style.setProperty('--resp-h', h + 'px');
+      applyDeviceDimensions(w, h);
       respDeviceSelect.value = 'responsive';
     }
-  });
+  }
 
-  respHeightInput.addEventListener('change', () => {
-    const w = parseInt(respWidthInput.value, 10);
-    const h = parseInt(respHeightInput.value, 10);
-    if (w && h) {
-      webviewScroll.classList.add('resp-device');
-      webviewScroll.style.setProperty('--resp-w', w + 'px');
-      webviewScroll.style.setProperty('--resp-h', h + 'px');
-      respDeviceSelect.value = 'responsive';
-    }
-  });
+  respWidthInput.addEventListener('change', applyCustomDimensions);
+  respHeightInput.addEventListener('change', applyCustomDimensions);
 
   respRotateBtn.addEventListener('click', () => {
     const w = parseInt(respWidthInput.value, 10);
@@ -781,6 +793,52 @@ require(['vs/editor/editor.main'], function () {
 
   // Default: responsive (no constraint)
   applyDeviceDimensions(null, null);
+
+  // ── Browser toolbar overflow (⋯ menu when the pane is narrow) ────────────
+  const browserToolbar  = document.getElementById('browser-toolbar');
+  const tbOverflowWrap  = document.getElementById('toolbar-overflow');
+  const tbMoreBtn       = document.getElementById('btn-toolbar-more');
+  const tbMoreMenu      = document.getElementById('toolbar-more-menu');
+  const tbGroups        = Array.from(browserToolbar.querySelectorAll('.tb-group')); // display order
+  const tbCollapseOrder = [...tbGroups].reverse(); // rightmost groups collapse first
+
+  let tbLayoutQueued = false;
+  function layoutBrowserToolbar() {
+    tbLayoutQueued = false;
+    tbMoreMenu.classList.add('hidden');
+    tbOverflowWrap.classList.add('hidden');
+    tbGroups.forEach(g => browserToolbar.insertBefore(g, tbOverflowWrap));
+    if (browserToolbar.scrollWidth <= browserToolbar.clientWidth) return;
+    tbOverflowWrap.classList.remove('hidden'); // ⋯ takes space, so show it before measuring
+    for (const g of tbCollapseOrder) {
+      if (browserToolbar.scrollWidth <= browserToolbar.clientWidth) break;
+      tbMoreMenu.prepend(g); // prepend keeps menu items in display order
+    }
+  }
+  function queueToolbarLayout() {
+    if (tbLayoutQueued) return;
+    tbLayoutQueued = true;
+    requestAnimationFrame(layoutBrowserToolbar);
+  }
+  new ResizeObserver(queueToolbarLayout).observe(browserToolbar);
+
+  tbMoreBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    if (tbMoreMenu.classList.contains('hidden')) {
+      tbMoreMenu.classList.remove('hidden');
+      const r  = tbMoreBtn.getBoundingClientRect();
+      const mw = tbMoreMenu.offsetWidth;
+      tbMoreMenu.style.top  = (r.bottom + 4) + 'px';
+      tbMoreMenu.style.left = Math.max(8, Math.min(r.right - mw, window.innerWidth - mw - 8)) + 'px';
+    } else {
+      tbMoreMenu.classList.add('hidden');
+    }
+  });
+  document.addEventListener('click', e => {
+    if (!e.target.closest('#toolbar-more-menu') && !e.target.closest('#toolbar-overflow')) {
+      tbMoreMenu.classList.add('hidden');
+    }
+  });
 
   // ── Auto-reload toggle ────────────────────────────────────────────────────
   const btnAutoReload = document.getElementById('btn-auto-reload');
@@ -805,13 +863,18 @@ require(['vs/editor/editor.main'], function () {
   // ════════════════════════════════════════════════════════════════════════════
   // SIDEBAR ACTIONS
   // ════════════════════════════════════════════════════════════════════════════
-  document.getElementById('btn-sidebar-toggle').addEventListener('click', () => {
+  function toggleSidebar() {
     const sidebar  = document.getElementById('sidebar');
     const divider  = document.getElementById('divider-sidebar');
+    const showBtn  = document.getElementById('btn-show-sidebar');
     const hidden   = sidebar.style.display === 'none';
     sidebar.style.display  = hidden ? '' : 'none';
     divider.style.display  = hidden ? '' : 'none';
-  });
+    showBtn.style.display  = hidden ? 'none' : 'flex';
+  }
+  document.getElementById('btn-sidebar-toggle').addEventListener('click', toggleSidebar);
+  document.getElementById('btn-sidebar-collapse').addEventListener('click', toggleSidebar);
+  document.getElementById('btn-show-sidebar').addEventListener('click', toggleSidebar);
 
   document.getElementById('btn-refresh-tree').addEventListener('click', refreshFileTree);
 
@@ -1046,19 +1109,24 @@ require(['vs/editor/editor.main'], function () {
   dividerBottom.addEventListener('mousedown', e => {
     e.preventDefault();
     dividerBottom.classList.add('dragging');
+    document.body.classList.add('pane-dragging');
     const startY   = e.clientY;
     const startH   = bottomPanel.getBoundingClientRect().height;
 
     function onMove(ev) {
+      if (ev.buttons === 0) return onUp(); // button released outside the window
       const delta = startY - ev.clientY; // drag up = bigger panel
       const newH  = Math.max(60, Math.min(600, startH + delta));
       bottomPanel.style.height = newH + 'px';
     }
     function onUp() {
       dividerBottom.classList.remove('dragging');
+      document.body.classList.remove('pane-dragging');
+      window.removeEventListener('blur', onUp);
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup',   onUp);
     }
+    window.addEventListener('blur', onUp);
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup',   onUp);
   });
@@ -2170,12 +2238,14 @@ require(['vs/editor/editor.main'], function () {
     divider.addEventListener('mousedown', e => {
       e.preventDefault();
       divider.classList.add('dragging');
+      document.body.classList.add('pane-dragging'); // webviews/iframes must not swallow mouse events mid-drag
 
       const target = document.getElementById(targetId);
       const startX = e.clientX;
       const startW = target.getBoundingClientRect().width;
 
       function onMove(e) {
+        if (e.buttons === 0) return onUp(); // button released outside the window
         const delta = e.clientX - startX;
         const newW  = Math.max(100, startW + (reverse ? -delta : delta));
         target.style.width = newW + 'px';
@@ -2184,10 +2254,13 @@ require(['vs/editor/editor.main'], function () {
 
       function onUp() {
         divider.classList.remove('dragging');
+        document.body.classList.remove('pane-dragging');
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup',   onUp);
+        window.removeEventListener('blur',        onUp);
       }
 
+      window.addEventListener('blur', onUp);
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup',   onUp);
     });

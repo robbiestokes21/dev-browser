@@ -1,7 +1,7 @@
 {
   "name": "dev-browser",
   "productName": "DevBrowser",
-  "version": "0.0.5",
+  "version": "0.0.8",
   "description": "Developer-first web browser with built-in code editor",
   "main": "src/main.js",
   "private": true,
@@ -12,6 +12,7 @@
     "publish": "electron-forge publish",
     "release": "node scripts/release.js",
     "release:gh": "node scripts/release.js --gh-only",
+    "env": "node scripts/env.js",
     "lint": "echo \"No linting configured\""
   },
   "keywords": [],

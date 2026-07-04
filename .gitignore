@@ -95,6 +95,8 @@ out/
 *.pfx
 *.pvk
 *.p12
+certs/
+scripts/env.js
 
 # claude files
 claude/

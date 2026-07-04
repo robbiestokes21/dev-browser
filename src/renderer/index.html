@@ -201,11 +201,15 @@
     <!-- Workspace -->
     <div id="workspace">
 
+      <!-- Show-sidebar button (visible only when sidebar is hidden) -->
+      <button type="button" id="btn-show-sidebar" title="Show Sidebar (Ctrl+B)">▶</button>
+
       <!-- Sidebar -->
       <div id="sidebar">
         <div id="sidebar-header">
           <span id="sidebar-title">EXPLORER</span>
           <div class="sidebar-btns">
+            <button class="icon-btn" id="btn-sidebar-collapse" title="Hide Sidebar (Ctrl+B)">☰</button>
             <button class="icon-btn" id="btn-new-file" title="New File">+F</button>
             <button class="icon-btn" id="btn-new-folder" title="New Folder">+D</button>
             <button class="icon-btn" id="btn-refresh-tree" title="Refresh">⟳</button>
@@ -265,6 +269,7 @@
           <button type="button" class="nav-btn" id="reload-browser" title="Reload">⟳</button>
           <input id="url" type="text" class="url-bar" placeholder="http://localhost:7777" />
           <button type="button" class="nav-btn go-btn" id="go">Go</button>
+          <div class="tb-group">
           <div class="toolbar-sep"></div>
           <!-- Chrome DevTools-style device picker -->
           <select id="resp-device-select" class="resp-device-select" title="Choose device">
@@ -292,12 +297,23 @@
           <span class="resp-dim-x">×</span>
           <input type="number" id="resp-height" class="resp-dim-input" min="240" max="3840" value="667" title="Height (px)" />
           <button type="button" id="resp-rotate" class="nav-btn" title="Rotate (swap width/height)">⟳</button>
+          <span id="resp-zoom-label" title="Preview zoom (scaled to fit pane)"></span>
+          </div>
+          <div class="tb-group">
           <div class="toolbar-sep"></div>
           <!-- Auto-reload toggle -->
           <button type="button" class="nav-btn auto-reload-btn" id="btn-auto-reload" title="Auto-reload on save (toggle)">Auto ⟳</button>
+          </div>
+          <div class="tb-group">
           <div class="toolbar-sep"></div>
           <!-- phpMyAdmin quick-launch -->
           <button type="button" class="nav-btn pma-btn" id="btn-phpmyadmin" title="Open phpMyAdmin">PMA</button>
+          </div>
+          <!-- Overflow menu: groups collapse in here when the pane is narrow -->
+          <div id="toolbar-overflow" class="hidden">
+            <button type="button" id="btn-toolbar-more" class="nav-btn" title="More tools">⋯</button>
+          </div>
+          <div id="toolbar-more-menu" class="hidden"></div>
         </div>
         <!-- Webview container — webviews are injected dynamically -->
         <div id="webview-scroll"></div>

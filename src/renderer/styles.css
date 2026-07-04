@@ -331,6 +331,12 @@ button { cursor: pointer; }
 .divider:hover,
 .divider.dragging { background: var(--accent); }
 
+/* While a divider is being dragged, embedded surfaces (webviews, iframes)
+   must not swallow mouse events or the drag freezes mid-motion. */
+body.pane-dragging webview,
+body.pane-dragging iframe { pointer-events: none; }
+body.pane-dragging { user-select: none; }
+
 /* ── Drag Divider (horizontal / bottom panel) ────────────── */
 .divider-h {
   height: 4px;
@@ -529,7 +535,7 @@ button { cursor: pointer; }
   display: flex;
   flex-direction: column;
   background: #1a1a1a;
-  flex-shrink: 0;
+  flex-shrink: 1;
 }
 
 #browser-toolbar {
@@ -541,7 +547,32 @@ button { cursor: pointer; }
   background: var(--bg2);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+  overflow-x: clip; /* overflowing groups are moved into the ⋯ menu by renderer.js */
 }
+
+.tb-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+#toolbar-overflow { flex-shrink: 0; margin-left: auto; }
+
+#toolbar-more-menu {
+  position: fixed;
+  z-index: 500;
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+}
+#toolbar-more-menu .toolbar-sep { display: none; }
 
 .nav-btn {
   background: var(--bg1);
@@ -574,6 +605,7 @@ button { cursor: pointer; }
 
 .url-bar {
   flex: 1;
+  min-width: 140px;
   background: var(--bg0);
   border: 1px solid var(--border2);
   color: var(--text);
@@ -630,6 +662,8 @@ button { cursor: pointer; }
   align-items: flex-end;
   gap: 2px;
   padding: 0 2px;
+  flex: 1;
+  min-width: 0;
 }
 
 .browser-tab {
@@ -638,7 +672,8 @@ button { cursor: pointer; }
   gap: 5px;
   padding: 0 10px;
   height: 28px;
-  min-width: 80px;
+  flex: 1 1 120px;
+  min-width: 0;
   max-width: 180px;
   background: var(--bg2);
   border-radius: 6px 6px 0 0;
@@ -704,15 +739,19 @@ button { cursor: pointer; }
   overflow: hidden;
 }
 
-/* All webviews hidden by default; .active-wv shown */
+/* All webviews hidden by default; .active-wv shown.
+   Electron's <webview> lays out its internal iframe with flex — overriding
+   display (block/none) collapses the guest viewport to the 150px iframe
+   default, so hide inactive webviews with visibility instead. */
 webview {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  display: none;
+  display: flex;
+  visibility: hidden;
 }
-webview.active-wv { display: block; }
+webview.active-wv { visibility: visible; }
 
 /* Responsive preview modes (legacy) */
 #webview-scroll.resp-tablet,
@@ -741,7 +780,8 @@ webview.active-wv { display: block; }
   position: absolute;
   left: 50%;
   top: 12px;
-  transform: translateX(-50%);
+  transform: translateX(-50%) scale(var(--resp-scale, 1));
+  transform-origin: top center;
   box-shadow: 0 0 0 1px var(--border2), 0 4px 24px rgba(0,0,0,0.35);
   border-radius: 4px;
 }
@@ -1890,6 +1930,28 @@ webview.active-wv { display: block; }
 }
 #btn-show-browser:hover { background: var(--accent); color: #fff; }
 
+#btn-show-sidebar {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 40px;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: 0 4px 4px 0;
+  color: var(--text-dim);
+  font-size: 11px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 20;
+  writing-mode: vertical-rl;
+  transition: background 0.1s, color 0.1s;
+}
+#btn-show-sidebar:hover { background: var(--accent); color: #fff; }
+
 /* When browser pane is hidden, editor pane gets a relative position for the show button */
 #editor-pane { position: relative; }
 
@@ -1897,6 +1959,14 @@ webview.active-wv { display: block; }
 .browser-tab.drag-over {
   border-left: 2px solid var(--accent);
   background: rgba(124,58,237,0.15);
+}
+
+#resp-zoom-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  min-width: 30px;
+  text-align: center;
+  flex-shrink: 0;
 }
 
 /* ── Chrome DevTools device picker ─────────────────────── */
