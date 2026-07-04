@@ -458,17 +458,32 @@
 <div id="ext-overlay" class="hidden">
   <div class="ext-card">
     <div class="ext-header">
-      <h2>Extensions &amp; Settings</h2>
+      <h2>Settings</h2>
       <button type="button" id="btn-close-ext" class="dialog-close">✕</button>
     </div>
 
+    <div class="ext-body">
+      <nav class="ext-nav" id="ext-nav">
+        <button type="button" class="ext-nav-item active" data-panel="panel-server"><span class="ext-nav-icon">⚡</span>Server</button>
+        <button type="button" class="ext-nav-item" data-panel="panel-runtimes"><span class="ext-nav-icon">🐘</span>PHP &amp; Node</button>
+        <button type="button" class="ext-nav-item" data-panel="panel-database"><span class="ext-nav-icon">🗄️</span>Database</button>
+        <button type="button" class="ext-nav-item" data-panel="panel-extensions"><span class="ext-nav-icon">🧩</span>Extensions</button>
+        <button type="button" class="ext-nav-item" data-panel="panel-editor"><span class="ext-nav-icon">✎</span>Editor</button>
+        <button type="button" class="ext-nav-item" data-panel="panel-updates"><span class="ext-nav-icon">↻</span>Updates</button>
+        <button type="button" class="ext-nav-item" data-panel="panel-pro"><span class="ext-nav-icon">★</span>Pro</button>
+        <div class="ext-nav-spacer"></div>
+        <div class="ext-nav-version" id="ext-nav-version"></div>
+      </nav>
+      <div class="ext-panels">
+
+    <div class="ext-panel active" id="panel-server">
     <!-- ═══════════ SERVER & BACKEND (ALL USERS) ═══════════ -->
     <div class="ext-section" id="section-server-backend">
-      <div class="section-label">Server &amp; Backend</div>
+      <div class="section-label">Server</div>
 
       <!-- Server Port -->
       <div class="server-subsection">
-        <div class="server-subsection-title">Local Server Port</div>
+        <div class="server-subsection-title">Port</div>
         <div class="settings-row">
           <div class="setting-item">
             <label class="setting-label" for="server-port">Default Port</label>
@@ -501,6 +516,12 @@
           </label>
         </div>
       </div>
+    </div><!-- /section-server-backend -->
+    </div><!-- /panel-server -->
+
+    <div class="ext-panel" id="panel-runtimes">
+    <div class="ext-section">
+      <div class="section-label">PHP &amp; Node.js Runtimes</div>
 
       <!-- PHP Installation -->
       <div class="server-subsection">
@@ -556,6 +577,12 @@
           <span id="php-ext-note" class="ext-note"></span>
         </div>
       </div>
+    </div>
+    </div><!-- /panel-runtimes -->
+
+    <div class="ext-panel" id="panel-database">
+    <div class="ext-section">
+      <div class="section-label">Database</div>
 
       <!-- MySQL -->
       <div class="server-subsection">
@@ -610,8 +637,10 @@
           <button type="button" id="btn-pma-open"     class="btn-secondary hidden">↗ Open in Browser</button>
         </div>
       </div>
-    </div><!-- /section-server-backend -->
+    </div>
+    </div><!-- /panel-database -->
 
+    <div class="ext-panel" id="panel-extensions">
     <!-- Chrome / Browser Extensions -->
     <div class="ext-section">
       <div class="section-label">Chrome Extensions (Browser)</div>
@@ -658,7 +687,9 @@
         </label>
       </div>
     </div>
+    </div><!-- /panel-extensions -->
 
+    <div class="ext-panel" id="panel-editor">
     <!-- Editor settings -->
     <div class="ext-section">
       <div class="section-label">Editor Settings</div>
@@ -687,6 +718,42 @@
       </div>
     </div>
 
+    <!-- Font size & tab size -->
+    <div class="ext-section">
+      <div class="section-label">Font &amp; Indentation</div>
+      <div class="settings-row">
+        <div class="setting-item">
+          <label class="setting-label" for="ext-fontsize">Font Size</label>
+          <select id="ext-fontsize" class="setting-select">
+            <option value="12">12px</option>
+            <option value="13">13px</option>
+            <option value="14" selected>14px</option>
+            <option value="15">15px</option>
+            <option value="16">16px</option>
+            <option value="18">18px</option>
+            <option value="20">20px</option>
+          </select>
+        </div>
+        <div class="setting-item">
+          <label class="setting-label" for="ext-tabsize">Tab Size</label>
+          <select id="ext-tabsize" class="setting-select">
+            <option value="2" selected>2 spaces</option>
+            <option value="4">4 spaces</option>
+          </select>
+        </div>
+        <div class="setting-item">
+          <label class="setting-label" for="ext-theme">Theme</label>
+          <select id="ext-theme" class="setting-select">
+            <option value="vs-dark" selected>Dark</option>
+            <option value="vs">Light</option>
+            <option value="hc-black">High Contrast</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    </div><!-- /panel-editor -->
+
+    <div class="ext-panel" id="panel-updates">
     <!-- Auto-updater -->
     <div class="ext-section">
       <div class="section-label">Auto-Updater</div>
@@ -701,7 +768,9 @@
         <span id="update-status-msg" class="ext-note"></span>
       </div>
     </div>
+    </div><!-- /panel-updates -->
 
+    <div class="ext-panel" id="panel-pro">
     <!-- Pro: AI Code Completion -->
     <div class="ext-section pro-section" id="section-ai">
       <div class="section-label">
@@ -783,40 +852,10 @@
         <button type="button" id="btn-reset-shortcuts" class="btn-secondary">Reset to Default</button>
       </div>
     </div>
+    </div><!-- /panel-pro -->
 
-    <!-- Font size & tab size -->
-    <div class="ext-section">
-      <div class="section-label">Font &amp; Indentation</div>
-      <div class="settings-row">
-        <div class="setting-item">
-          <label class="setting-label" for="ext-fontsize">Font Size</label>
-          <select id="ext-fontsize" class="setting-select">
-            <option value="12">12px</option>
-            <option value="13">13px</option>
-            <option value="14" selected>14px</option>
-            <option value="15">15px</option>
-            <option value="16">16px</option>
-            <option value="18">18px</option>
-            <option value="20">20px</option>
-          </select>
-        </div>
-        <div class="setting-item">
-          <label class="setting-label" for="ext-tabsize">Tab Size</label>
-          <select id="ext-tabsize" class="setting-select">
-            <option value="2" selected>2 spaces</option>
-            <option value="4">4 spaces</option>
-          </select>
-        </div>
-        <div class="setting-item">
-          <label class="setting-label" for="ext-theme">Theme</label>
-          <select id="ext-theme" class="setting-select">
-            <option value="vs-dark" selected>Dark</option>
-            <option value="vs">Light</option>
-            <option value="hc-black">High Contrast</option>
-          </select>
-        </div>
-      </div>
-    </div>
+      </div><!-- /ext-panels -->
+    </div><!-- /ext-body -->
   </div>
 </div>
 

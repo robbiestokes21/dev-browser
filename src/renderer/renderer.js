@@ -2144,6 +2144,18 @@ require(['vs/editor/editor.main'], function () {
     document.getElementById('ext-overlay').classList.add('hidden');
   });
 
+  // Settings nav: one panel visible at a time
+  document.querySelectorAll('.ext-nav-item').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.ext-nav-item').forEach(b => b.classList.toggle('active', b === btn));
+      document.querySelectorAll('.ext-panel').forEach(p => p.classList.toggle('active', p.id === btn.dataset.panel));
+    });
+  });
+  window.DevBrowser.getAppVersion?.().then(v => {
+    const el = document.getElementById('ext-nav-version');
+    if (el && v) el.textContent = `DevBrowser v${v}`;
+  }).catch(() => {});
+
   ['tailwind','bootstrap','react','vue'].forEach(name => {
     document.getElementById(`ext-${name}`).addEventListener('change', e => {
       saveSetting(name, e.target.checked);
