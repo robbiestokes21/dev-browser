@@ -1063,6 +1063,12 @@ webview.active-wv { visibility: visible; }
 .status-btn  { cursor: pointer; opacity: 0.9; }
 .status-btn:hover { opacity: 1; text-decoration: underline; }
 
+/* Version / update indicator */
+#status-version.status-version-ok     { color: #4ade80; }
+#status-version.status-version-update { color: #fde047; font-weight: 600; animation: pulse-update 2s ease-in-out infinite; }
+#status-version.status-version-error  { color: #fca5a5; }
+@keyframes pulse-update { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+
 /* ═══════════════════════════════════════════════════════════
    CONTEXT MENU
 ════════════════════════════════════════════════════════════════ */

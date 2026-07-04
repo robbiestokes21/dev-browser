@@ -1334,6 +1334,53 @@ require(['vs/editor/editor.main'], function () {
     }
   });
 
+  // ── Version / update indicator ────────────────────────────────────────────
+  const statusVersionEl = document.getElementById('status-version');
+  let appVersion = '';
+  let updateDownloaded = false;
+
+  function setVersionStatus(mode, text, title) {
+    statusVersionEl.classList.remove('status-version-ok', 'status-version-update', 'status-version-error');
+    statusVersionEl.classList.add(mode);
+    statusVersionEl.textContent = text;
+    statusVersionEl.title = title;
+  }
+
+  (async () => {
+    try { appVersion = await window.DevBrowser.getAppVersion(); } catch {}
+    if (appVersion) {
+      setVersionStatus('status-version-ok', `⬤ v${appVersion}`,
+        'DevBrowser is up to date — click to check for updates');
+    }
+  })();
+
+  statusVersionEl.addEventListener('click', () => {
+    if (updateDownloaded) {
+      window.DevBrowser.installUpdate();
+    } else {
+      setVersionStatus('status-version-ok', `⟳ Checking…`, 'Checking for updates');
+      window.DevBrowser.checkForUpdates();
+    }
+  });
+
+  window.DevBrowser.onUpdateStatus(({ type, releaseName, message }) => {
+    const v = appVersion ? `v${appVersion}` : '';
+    if (type === 'checking') {
+      setVersionStatus('status-version-ok', `⟳ ${v}`, 'Checking for updates…');
+    } else if (type === 'available') {
+      setVersionStatus('status-version-update', '⬇ Downloading update…', 'A new version is downloading');
+    } else if (type === 'downloaded') {
+      updateDownloaded = true;
+      setVersionStatus('status-version-update', `⬆ Update available — v${releaseName}`,
+        'Click to restart and install the update');
+    } else if (type === 'not-available') {
+      setVersionStatus('status-version-ok', `⬤ ${v}`,
+        'DevBrowser is up to date — click to check for updates');
+    } else if (type === 'error') {
+      setVersionStatus('status-version-error', `⬤ ${v}`, `Update check failed: ${message || 'unknown error'}`);
+    }
+  });
+
   // ════════════════════════════════════════════════════════════════════════════
   // FIND IN FILES
   // ════════════════════════════════════════════════════════════════════════════
@@ -2678,6 +2725,7 @@ require(['vs/editor/editor.main'], function () {
     refreshPhpDetection();
     refreshMysqlStatus();
     refreshPhpMyAdminStatus();
+    if (window.refreshRuntimeStatus) window.refreshRuntimeStatus();
 
     if (!state.isPro) return;
     const provider = proSettings.aiProvider || 'openai';
@@ -2752,9 +2800,65 @@ require(['vs/editor/editor.main'], function () {
     // PHP re-scan
     document.getElementById('btn-php-detect').addEventListener('click', refreshPhpDetection);
 
-    // PHP download (opens in system browser via allowlisted openExternal)
-    document.getElementById('btn-php-download').addEventListener('click', () => {
-      window.DevBrowser.openExternal('https://windows.php.net/download/');
+    // ── Bundled runtimes (PHP / Node.js) ────────────────────────────────────
+    async function refreshRuntimeStatus() {
+      const list = await window.DevBrowser.runtimeList();
+      const nodeStatus = document.getElementById('node-runtime-status');
+      const nodeRemove = document.getElementById('btn-node-remove');
+      const nodeInstall = document.getElementById('btn-node-install');
+      if (list.node?.installed) {
+        nodeStatus.textContent = `✓ Node.js v${list.node.version} installed (${list.node.sizeMB} MB) — available in the built-in terminal as "node" / "npm"`;
+        nodeInstall.classList.add('hidden');
+        nodeRemove.classList.remove('hidden');
+      } else {
+        nodeStatus.textContent = 'Not installed. One click downloads the official Node.js LTS (checksum-verified) — no system install needed.';
+        nodeInstall.classList.remove('hidden');
+        nodeRemove.classList.add('hidden');
+      }
+      const phpBtn = document.getElementById('btn-php-download');
+      phpBtn.textContent = list.php?.installed
+        ? `✓ Bundled PHP v${list.php.version} (${list.php.sizeMB} MB)`
+        : '⬇ Install PHP (bundled)';
+    }
+    window.refreshRuntimeStatus = refreshRuntimeStatus;
+
+    window.DevBrowser.onRuntimeProgress(({ runtime, percent, status }) => {
+      const note = document.getElementById(runtime === 'php' ? 'php-version-note' : 'node-runtime-note');
+      if (!note) return;
+      if (status === 'error')      note.textContent = '✖ Install failed';
+      else if (status === 'done')  note.textContent = '✓ Installed';
+      else                         note.textContent = `${status}… ${percent}%`;
+    });
+
+    // Bundled PHP install (checksum-verified download from windows.php.net)
+    document.getElementById('btn-php-download').addEventListener('click', async () => {
+      const note = document.getElementById('php-version-note');
+      note.textContent = 'Starting download…';
+      const r = await window.DevBrowser.runtimeInstall('php');
+      if (r.success) {
+        note.textContent = `✓ PHP v${r.version} installed`;
+        await window.DevBrowser.saveServerConfig({ phpBinary: r.path });
+        serverConfig.phpBinary = r.path;
+        document.getElementById('php-binary-path').value = r.path;
+        refreshPhpDetection();
+      } else {
+        note.textContent = `✖ ${r.error}`;
+      }
+      refreshRuntimeStatus();
+    });
+
+    document.getElementById('btn-node-install').addEventListener('click', async () => {
+      const note = document.getElementById('node-runtime-note');
+      note.textContent = 'Starting download…';
+      const r = await window.DevBrowser.runtimeInstall('node');
+      note.textContent = r.success ? `✓ Node.js v${r.version} installed` : `✖ ${r.error}`;
+      refreshRuntimeStatus();
+    });
+
+    document.getElementById('btn-node-remove').addEventListener('click', async () => {
+      await window.DevBrowser.runtimeRemove('node');
+      document.getElementById('node-runtime-note').textContent = 'Removed';
+      refreshRuntimeStatus();
     });
 
     // Apply PHP extensions

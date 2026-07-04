@@ -378,6 +378,7 @@
     <div class="status-right">
       <span id="status-auto-reload" class="status-item">Auto-reload: off</span>
       <span id="status-server" class="status-item status-btn" title="Local server">⬤ No server</span>
+      <span id="status-version" class="status-item status-btn status-version-ok" title="DevBrowser is up to date — click to check for updates">⬤ v—</span>
     </div>
   </div>
 
@@ -515,8 +516,19 @@
         </div>
         <div class="ext-section-footer">
           <button type="button" id="btn-php-detect" class="btn-secondary">⟳ Re-scan</button>
-          <button type="button" id="btn-php-download" class="btn-secondary">↗ Download PHP</button>
+          <button type="button" id="btn-php-download" class="btn-secondary">⬇ Install PHP (bundled)</button>
           <span id="php-version-note" class="ext-note"></span>
+        </div>
+      </div>
+
+      <!-- Node.js Runtime -->
+      <div class="server-subsection">
+        <div class="server-subsection-title">Node.js Runtime</div>
+        <p class="ext-note" id="node-runtime-status">Checking…</p>
+        <div class="ext-section-footer">
+          <button type="button" id="btn-node-install" class="btn-secondary">⬇ Install Node.js (bundled)</button>
+          <button type="button" id="btn-node-remove" class="btn-secondary hidden">🗑 Remove</button>
+          <span id="node-runtime-note" class="ext-note"></span>
         </div>
       </div>
 

@@ -10,6 +10,7 @@ const net = require("net");
 const { spawn, execFile } = require("child_process");
 const license = require("./license");
 const serverCfg = require("./server-config");
+const runtimes = require("./runtime-manager");
 
 let mainWindow = null;
 let editorWindow = null;
@@ -166,6 +167,13 @@ async function detectPhpBinaries() {
     });
   }
 
+  // 0. Bundled runtime (installed by DevBrowser's runtime manager)
+  const bundled = runtimes.getBundledPhp();
+  if (bundled) {
+    const info = await tryBinary(bundled.exe);
+    if (info) results.push(info);
+  }
+
   // 1. Check PATH-available 'php'
   const fromPath = await tryBinary('php');
   if (fromPath) results.push(fromPath);
@@ -218,7 +226,7 @@ function startPhpServer(projectPath, cfg) {
     if (phpServer) { try { phpServer.kill(); } catch {} phpServer = null; }
 
     const port   = cfg.port || 7777;
-    const binary = cfg.phpBinary || 'php';
+    const binary = cfg.phpBinary || runtimes.getBundledPhp()?.exe || 'php';
 
     try {
       phpServer = spawn(binary, ['-S', `127.0.0.1:${port}`, '-t', projectPath], {
@@ -498,7 +506,7 @@ async function startPhpMyAdmin(cfg) {
   const pmaDir = PMA_DIR();
   if (!phpMyAdminInstalled()) return { success: false, error: 'phpMyAdmin not installed.' };
 
-  const phpBinary = cfg.phpBinary || 'php';
+  const phpBinary = cfg.phpBinary || runtimes.getBundledPhp()?.exe || 'php';
   const port      = cfg.phpMyAdminPort || 7799;
 
   return new Promise(resolve => {
@@ -1099,6 +1107,19 @@ ipcMain.handle("php-detect", async () => {
   }
 });
 
+// ─── Bundled Runtimes ────────────────────────────────────────────────────────
+runtimes.setProgressSink(data => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('runtime-progress', data);
+  }
+});
+
+ipcMain.handle("runtime-list",    ()          => runtimes.listRuntimes());
+ipcMain.handle("runtime-install", (_e, name)  => runtimes.installRuntime(name));
+ipcMain.handle("runtime-remove",  (_e, name)  => runtimes.removeRuntime(name));
+
+ipcMain.handle("get-app-version", () => app.getVersion());
+
 ipcMain.handle("php-check-extensions", async (_e, phpBinary) => {
   return checkPhpExtensions(phpBinary);
 });
@@ -1245,10 +1266,20 @@ ipcMain.handle("terminal-run", (event, { command, cwd }) => {
   const shell = isWin ? "cmd.exe" : "sh";
   const args  = isWin ? ["/c", command] : ["-c", command];
 
+  // Bundled runtimes join the terminal PATH (user-installed versions win —
+  // theirs come first, ours are appended)
+  const termEnv = { ...process.env };
+  const bundledNode = runtimes.getBundledNode();
+  const bundledPhp  = runtimes.getBundledPhp();
+  const extraPaths = [bundledNode && path.dirname(bundledNode.exe),
+                      bundledPhp  && path.dirname(bundledPhp.exe)].filter(Boolean);
+  if (extraPaths.length) termEnv.PATH = `${termEnv.PATH || ''};${extraPaths.join(';')}`;
+
   try {
     terminalProcess = spawn(shell, args, {
       cwd: cwd || app.getPath("home"),
       windowsHide: true,
+      env: termEnv,
     });
 
     const send = (data, stream) => {

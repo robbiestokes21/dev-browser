@@ -67,6 +67,16 @@ contextBridge.exposeInMainWorld("DevBrowser", {
   installExtension:    (srcPath)  => ipcRenderer.invoke("install-extension", srcPath),
   removeExtension:     (id)       => ipcRenderer.invoke("remove-extension", id),
 
+  // ── Bundled Runtimes (PHP / Node.js) ─────────────────────────────────────
+  runtimeList:       ()     => ipcRenderer.invoke("runtime-list"),
+  runtimeInstall:    (name) => ipcRenderer.invoke("runtime-install", name),
+  runtimeRemove:     (name) => ipcRenderer.invoke("runtime-remove", name),
+  onRuntimeProgress: (cb)   => ipcRenderer.on("runtime-progress", (_e, data) => cb(data)),
+  offRuntimeProgress: ()    => ipcRenderer.removeAllListeners("runtime-progress"),
+
+  // ── App version ──────────────────────────────────────────────────────────
+  getAppVersion: () => ipcRenderer.invoke("get-app-version"),
+
   // ── Auto-updater ─────────────────────────────────────────────────────────
   getUpdateFeedUrl:  ()    => ipcRenderer.invoke("get-update-feed-url"),
   setUpdateFeedUrl:  (url) => ipcRenderer.invoke("set-update-feed-url", url),
